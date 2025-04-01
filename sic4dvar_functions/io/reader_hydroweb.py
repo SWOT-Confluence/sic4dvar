@@ -1,0 +1,339 @@
+"""
+Created on November 9th 2023 at 11:00
+by @Isadora Silva
+
+Last modified on February 23rd 2024 at 18:00
+by @Isadora Silva
+
+@authors: Isadora Silva
+"""
+import pathlib
+from datetime import datetime
+from typing import Tuple, Literal
+
+import numpy as np
+import pandas as pd
+
+from sic4dvar_classes.sic4dvar_0_defaults import SIC4DVarLowCostDefaults
+from sic4dvar_functions.helpers.helpers_arrays import datetime_array_set_to_freq_and_filter
+from sic4dvar_functions.io.reader_sword import get_vars_from_sword_file
+from sic4dvar_functions.utm_converter import load_utm_crs_from_latlon
+
+
+def read_hydroweb_txt(
+        hydroweb_txt_file_path: str | pathlib.PurePath,
+        no_data_value: float | str = 9999.999,
+        ref_datetime: datetime = SIC4DVarLowCostDefaults().def_ref_datetime,
+        freq_datetime: str = SIC4DVarLowCostDefaults().def_freq_datetime,
+        dup_datetime: Literal["drop", "raise"] = "raise",
+        start_datetime: datetime | float | int | None = None,
+        end_datetime: datetime | float | int | None = None,
+) -> Tuple[pd.DataFrame, float, float]:
+    
+    # latitude and longitude of the station
+    lat_s, lon_s = np.nan, np.nan
+
+    # init dataframe
+    df_s = pd.DataFrame()
+
+    # init variables to read txt file
+    j = 0
+    start_table = False
+    col_descript = []
+
+    # read csv file
+    with open(hydroweb_txt_file_path, mode="r") as fp:
+        f_lines = fp.readlines()
+
+        # loop in lines
+        for row in f_lines:
+            # get longitude of station
+            if "LONGITUDE::" in row:
+                lon_s = float(row.split(" ")[-1])
+            # get latitude of station
+            if "LATITUDE::" in row:
+                lat_s = float(row.split(" ")[-1])
+            # get name of columns with tabular data
+            if "#COL" in row:
+                col_descript.append(row.split(" : ")[-1][:-1])
+            # define where tabular data starts
+            if "####" in row:
+                start_table = True
+                continue
+            # get tabular data
+            if start_table:
+                # init dataframe with defined colum names
+                if df_s.columns.empty:
+                    df_s = pd.DataFrame(columns=col_descript)
+                row = row.split(" ")
+                # exclude ":"
+                row = [i for i in row if i != ":"]
+                # convert NaN values
+                row = [i if i != str(no_data_value) else np.nan for i in row]
+                # assign to dataframe
+                df_s.loc[j] = row
+                # next dataframe loc
+                j += 1
+
+    # target columns
+    date_col, z_col, z_u_col = "", "", ""
+
+    # loop in columns to define target columns, convert to target datatypes
+    for c in col_descript:
+        if "time(" in c.lower():
+            continue
+        elif "date(" in c.lower():
+            # create datetime column
+            df_s[c] = pd.to_datetime(
+                df_s[c] + " " + df_s[[c_i for c_i in col_descript if "time(" in c_i.lower()][0]])
+            date_col = c
+            continue
+        elif "orthometric" in c.lower():
+            z_col = c
+        elif "uncertainty" in c.lower():
+            z_u_col = c
+        # convert to target datatype
+        df_s = df_s.astype({c: np.float32}, errors="ignore")
+
+    # keep only target columns
+    df_s = df_s[[date_col, z_col, z_u_col]]
+    # rename
+    df_s.rename(columns={date_col: "date", z_col: "wse", z_u_col: "wse_u"}, inplace=True)
+    # set index
+    df_s.set_index("date", inplace=True)
+
+    if any([start_datetime is not None, end_datetime is not None, freq_datetime]):
+        # Match the datetimes to the specified frequency and get boolean array for filtering between start and end
+        df_s_index_mask_bool, df_s_index_dates, _ = datetime_array_set_to_freq_and_filter(
+            data_dt=df_s.index, ref_datetime=ref_datetime, freq_datetime=freq_datetime,
+            duplicates=dup_datetime, start_datetime=start_datetime, end_datetime=end_datetime)
+
+        if df_s_index_mask_bool.size == 0:
+            return lat_s, lon_s, df_s.iloc[0:0]
+        if np.all(~df_s_index_mask_bool):
+            return lat_s, lon_s, df_s.iloc[0:0]
+
+        # Filter the data to include only the values between start and end dates
+        df_s = df_s.loc[df_s.index[df_s_index_mask_bool]]
+
+        # change the name of the index
+        df_s_index_dates = pd.to_datetime(df_s_index_dates)
+        df_s.index = df_s_index_dates
+
+    return lat_s, lon_s, df_s
+
+
+def get_df_from_hydroweb_txt(
+        reach_ids: Tuple[str | int, ...],
+        hydroweb_stations: Tuple[str, ...],
+        hydroweb_txt_file_pattern: str | pathlib.PurePath,
+        sword_file_path: str | pathlib.PurePath,
+        x_ref: Literal["node_length", "dist_out"] = "node_length",
+        no_data_value: float | str = 9999.999,
+        add_facc: bool = False,
+        ref_datetime: datetime = SIC4DVarLowCostDefaults().def_ref_datetime,
+        freq_datetime: str = SIC4DVarLowCostDefaults().def_freq_datetime,
+        dup_datetime: Literal["drop", "raise"] = "raise",
+        start_datetime: datetime | float | int | None = None,
+        end_datetime: datetime | float | int | None = None,
+        clean_run: bool = False,
+        debug_mode: bool = False,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    
+    import shapely
+    import pyproj
+
+    if clean_run:
+        debug_mode = False
+    if debug_mode:
+        clean_run = False
+
+    reach_ids = [int(i) for i in reach_ids]
+
+    if len(reach_ids) == 0:
+        raise TypeError("must specify at lest one reach_id")
+
+    sword_dict = get_vars_from_sword_file(
+        reach_ids=reach_ids,
+        sword_file_path=sword_file_path,
+        node_vars=("reach_id", "node_id", "x", "y", "node_length", "dist_out",),
+        reach_vars=("facc",) if add_facc else (),
+        x_ref=x_ref,
+        clean_run=clean_run,
+    )
+
+    df_sword = pd.DataFrame(sword_dict["nodes"])[["node_id", "reach_id", "x", "y", "dist_out"]]
+    df_sword["node_id"] = df_sword["node_id"].astype(np.int64)
+    df_sword["reach_id"] = df_sword["reach_id"].astype(np.int64)
+    df_sword["x"] = df_sword["x"].astype(np.float32)
+    df_sword["y"] = df_sword["y"].astype(np.float32)
+    df_sword["dist_out"] = df_sword["dist_out"].astype(np.float64)
+    df_sword["dist"] = df_sword["dist_out"].max() - df_sword["dist_out"]
+    df_sword.sort_values("dist", inplace=True, ascending=True)
+    df_sword.set_index("node_id", inplace=True)
+
+    if add_facc:
+        df_sword["facc"] = np.nan
+        for r_n, r_id in enumerate(reach_ids):
+            df_sword.loc[df_sword["reach_id"] == r_id, "facc"] = sword_dict["reaches"]["facc"][r_n]
+
+    del sword_dict
+
+    # load utm converter
+    utm_proj_s = pyproj.Transformer.from_crs(
+        pyproj.CRS.from_epsg(4326), load_utm_crs_from_latlon(
+            latitude=df_sword["y"].mean(), longitude=df_sword["x"].mean(),
+        ), always_xy=True)
+
+    # project nodes to UTM
+    df_sword["x"], df_sword["y"] = utm_proj_s.transform(df_sword["x"], df_sword["y"])
+
+    msg = f"loading data from {len(hydroweb_stations)} Hydroweb stations"
+    if not clean_run:
+        print(msg)
+
+    df_wse_all = []
+    df_wse_u_all = []
+
+    for hw_s in hydroweb_stations:
+        if debug_mode:
+            print("loading data for Hydroweb station", hw_s)
+
+        # get path to the station
+        hw_f = str(hydroweb_txt_file_pattern).format(hw_s)
+
+        # read tabular data and get lat and lon of station
+        lat_s, lon_s, df_s = read_hydroweb_txt(
+            hydroweb_txt_file_path=hw_f, no_data_value=no_data_value,
+            ref_datetime=ref_datetime, freq_datetime=freq_datetime, dup_datetime=dup_datetime,
+            start_datetime=start_datetime, end_datetime=end_datetime)
+
+        if debug_mode:
+            print(f"data loaded. Station located at ({lat_s, lon_s}), (lat, lon)")
+
+        # convert to utm to compute distance
+        x_s, y_s = utm_proj_s.transform(lon_s, lat_s)
+        pt_s = shapely.Point((x_s, y_s))
+
+        # find id of nearest sword node
+        if debug_mode:
+            print("finding closest node to station")
+        dist_0 = np.inf
+        node_id_hw = None
+        for node_id in df_sword.index:
+            pt_i = shapely.Point((df_sword.loc[node_id, "x"], df_sword.loc[node_id, "y"]))
+            dist_i = shapely.distance(pt_s, pt_i)
+            if dist_i < dist_0:
+                dist_0 = dist_i
+                node_id_hw = node_id
+
+        if debug_mode:
+            print(f"closest node is: {node_id_hw} located {round(dist_0, 2)}m from Hydroweb station")
+
+        df_wse_hw_i = pd.DataFrame(df_s["wse"].to_numpy(), index=df_s.index, columns=[node_id_hw, ])
+        df_wse_u_hw_i = pd.DataFrame(df_s["wse_u"].to_numpy(), index=df_s.index, columns=[node_id_hw, ])
+
+        df_wse_all.append(df_wse_hw_i)
+        df_wse_u_all.append(df_wse_u_hw_i)
+
+    # concatenate all observations
+    df_wse_all = pd.concat(df_wse_all, axis=1)
+    df_wse_u_all = pd.concat(df_wse_u_all, axis=1)
+
+    # change type of columns
+    df_wse_all.columns = df_wse_all.columns.astype(np.int64)
+    df_wse_u_all.columns = df_wse_u_all.columns.astype(np.int64)
+
+    # sort by time
+    df_wse_all.sort_index(inplace=True)
+    df_wse_u_all.sort_index(inplace=True)
+
+    # compute seconds from reference
+    df_wse_all["sec_from_ref"] = (df_wse_all.index - ref_datetime).total_seconds()
+    df_wse_all["sec_from_ref"] = df_wse_all["sec_from_ref"].astype(np.int64)
+    df_wse_all.set_index("sec_from_ref", inplace=True)
+    df_wse_u_all.index = df_wse_all.index
+
+    # sort nodes by distance
+    node_ids = df_wse_all.columns.to_numpy(dtype=np.int64)
+    node_dist = df_sword.loc[node_ids, "dist"].to_numpy(dtype=np.float64)
+    node_ids = node_ids[np.argsort(node_dist)]
+
+    # use sorted nodes to sort columns of dataframe
+    df_wse_all = df_wse_all[node_ids]
+    df_wse_u_all = df_wse_u_all[node_ids]
+
+    # transpose
+    df_wse_all = df_wse_all.T
+    df_wse_u_all = df_wse_u_all.T
+
+    # change datatype
+    df_wse_all = df_wse_all.astype(np.float32)
+    df_wse_u_all = df_wse_u_all.astype(np.float32)
+
+    if add_facc:
+        df_sword = df_sword[["reach_id", "dist", "facc"]]
+    else:
+        df_sword = df_sword[["reach_id", "dist"]]
+
+    if not clean_run:
+        print(msg, "done")
+
+    return df_wse_all, df_wse_u_all, df_sword
+
+
+if __name__ == "__main__":
+    """  """
+
+    base_path = pathlib.Path(r"C:\Users\isadora.rezende\PhD\Datasets")
+
+    # lat_si, lon_si, df_si = read_hydroweb_txt(
+    #     base_path / "Hydroweb" / "Po" / "download_expert" / "R_PO_FIUME-OGLIO_KM0191_exp.txt",
+    # )
+    # print(df_si)
+    # print()
+    #
+    # df_wse_all_test, df_wse_u_all_test, df_sword_test = get_df_from_hydroweb_txt(
+    #     hydroweb_stations=["R_PO_FIUME-OGLIO_KM0191", "R_PO_PO_KM0160"],
+    #     hydroweb_txt_file_pattern=base_path / "Hydroweb" / "Po" / "download_expert" / "{}_exp.txt",
+    #     sword_file_path=base_path / "SWORD" / "v15" / "netcdf" / "eu_sword_v15.nc",
+    #     reach_ids=[21406100111, 21406100101, ],
+    #     add_facc=True,
+    # )
+    # print(df_sword_test)
+    # print()
+    # print(df_wse_all_test)
+    # print()
+
+    df_wse_all_test, df_wse_u_all_test, df_sword_test = get_df_from_hydroweb_txt(
+        hydroweb_stations=(
+            "FIUME-OGLIO_KM0191",
+            "PO_KM0160",
+            "PO_KM0145",
+            "PO_KM0140",
+            "PO_KM0098",
+            "PO_KM0096",
+            "PO_KM0082",
+        ),
+        hydroweb_txt_file_pattern=base_path / "Hydroweb" / "Po" / "download_expert" / "R_PO_{}_exp.txt",
+        sword_file_path=base_path / "SWORD" / "v15" / "netcdf" / "eu_sword_v15.nc",
+        reach_ids=(
+            21406100011,  # !
+            21406100021,  # !
+            21406100031,
+            21406100041,
+            21406100051,
+            21406100061,
+            21406100071,  # !
+            21406100081,
+            21406100101,
+            21406100111,
+        ),
+        add_facc=True,
+        freq_datetime="3h",
+        start_datetime=datetime(2008, 5, 1),
+        end_datetime=datetime(2009, 6, 1),
+    )
+
+    print(df_wse_all_test)
+    print(df_sword_test)
