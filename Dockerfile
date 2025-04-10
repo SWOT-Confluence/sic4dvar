@@ -29,7 +29,7 @@ COPY sic4dvar_functions /app/src/sic4dvar_functions
 COPY lib /app/src/lib
 COPY configs/specific_filters /app/src/configs/specific_filters
 
-COPY sic4dvar_param_confluence.ini sic4dvar_param_confluence.ini
+COPY sic4dvar_param_confluence.ini /app/sic4dvar_param_confluence.ini
 COPY sic4dvar_params.py /app/src/sic4dvar_params.py
 
 COPY sic4dvar.py /app/src/sic4dvar.py
