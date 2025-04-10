@@ -1,17 +1,7 @@
-"""
-Created on September 15th 2023 at 16:00
-by @Isadora Silva
-
-Last modified on February 7th 2025 at 22:00
-by @Isadora Silva
-
-@authors: Isadora Silva
-"""
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 import numpy as np
-
 
 @dataclass
 class SIC4DVarLowCostDefaults:
@@ -37,8 +27,7 @@ class SIC4DVarLowCostDefaults:
     def_lsm_z_x: int = 10
     def_lsm_z_t: int = 1
     def_lsm_cor_x: float | None = None
-    def_lsm_z_x_behavior: str | Literal['force', 'sort', 'print', 'none', ''
-        ] = ''
+    def_lsm_z_x_behavior: str | Literal['force', 'sort', 'print', 'none', ''] = ''
     def_lsm_cor_t: float = 0.25 * 24 * 3600
     def_lsm_z_min_dz: float = 0.01
     def_lsm_z_inter: bool = False
@@ -114,131 +103,11 @@ class SIC4DVarLowCostDefaults:
     def_float_atol: float = 1e-08
     def_thres: float = 1.0
     def_use_ext_bool = True
-    def_val_swot_q_flag = 0, 1
+    def_val_swot_q_flag = (0, 1)
     def_swot_q_min_n_nodes: int = 3
     def_swot_q_min_n_times: int = 10
     def_manning_n_min: float = 0.01
     def_manning_n_max: float = 0.25
-
-
 sic_def = SIC4DVarLowCostDefaults()
-_attr_dict = {'Simulated reach(es)': ('reach_id',), 'General parameters': (
-    'algo_version', 'start_datetime_param', 'end_datetime_param',
-    'handle_reaches_param', 'ref_datetime_param', 'freq_datetime_param',
-    'float_atol_param'), 'Data sources': ('observations_source',
-    'cross_sections_source', 'q_prior_source', 'slope_source'),
-    'Outlier z params': ('node_z_outlier_removed_bool',
-    'outlier_z_median_n_iters_param', 'outlier_z_space_n_iters_param',
-    'outlier_z_time_n_iters_param', 'outlier_z_median_thr_param',
-    'outlier_z_space_thr_param', 'outlier_z_time_thr_param',
-    'outlier_z_space_w_size_param'), 'Outlier w params': (
-    'node_w_outlier_removed_bool', 'outlier_w_median_n_iters_param',
-    'outlier_w_space_n_iters_param', 'outlier_w_time_n_iters_param',
-    'outlier_w_median_thr_param', 'outlier_w_space_thr_param',
-    'outlier_w_time_thr_param', 'outlier_w_space_w_size_param'),
-    'Smoothing z parameters': ('node_z_smooth_bool',
-    'smooth_z_in_space_bool', 'lsm_z_x_param', 'lsm_cor_x_param',
-    'smooth_z_in_time_bool', 'lsm_z_t_param', 'lsm_cor_t_param',
-    'lsm_z_min_dz_param', 'lsm_z_inter_bool', 'lsm_z_inter_max_dz_param',
-    'lsm_z_inter_min_dz_param', 'lsm_z_first_sweep_param',
-    'lsm_z_remove_bias_in_loop_bool'), 'Smoothing w parameters': (
-    'node_w_obs_bool', 'node_w_smooth_bool', 'smooth_w_in_space_bool',
-    'lsm_w_x_param', 'smooth_w_in_time_bool', 'lsm_w_t_param',
-    'lsm_w_min_dw_param', 'lsm_w_first_sweep_param',
-    'lsm_w_remove_bias_in_loop_bool'), 'Filling missing z parameters': (
-    'node_z_fill_bool', 'fill_missing_z_bool',
-    'fill_missing_z_unobserved_nodes_bool', 'dx_max_z_in_param',
-    'dx_max_z_out_param'), 'Filling missing w parameters': (
-    'node_w_fill_bool', 'fill_missing_w_bool',
-    'fill_missing_w_weight_param', 'fill_missing_w_extrap_min_bool',
-    'fill_missing_w_extrap_max_bool', 'dx_max_w_in_param',
-    'dx_max_w_out_param'), 'Slope parameters': ('reach_s_obs_bool',
-    'slope_node_bool', 'reach_s_fixed_bool', 'slope_load_bool',
-    'slope_bool', 'slope_from_nodes_method_param', 'slope_lsm_param',
-    'slope_max_dx_param', 'slope_min_dx_param', 'slope_max_param',
-    'slope_min_param'), 'Cross-Section building parameters': (
-    'cross_section_obs_bool', 'cross_section_ref_bool',
-    'cross_section_comb_bool', 'cross_section_reg_bool',
-    'cross_section_modif_zb_bool', 'cross_section_shrink_zb_bool',
-    'cross_section_use_obs_bool', 'cross_section_build_method_param',
-    'cross_section_bottom_method_param', 'cross_section_bottom_shrink_bool',
-    'cross_section_depth_min_param', 'cross_section_depth_max_param',
-    'cross_section_width_bottom_check_bool',
-    'cross_section_width_top_check_bool',
-    'cross_section_width_top_modify_bool',
-    'cross_section_width_top_max_angle_param',
-    'cross_section_width_top_max_dx_param',
-    'cross_section_float_atol_param', 'cross_section_simp_max_dist_param',
-    'cross_section_simp_max_n_points_param', 'lsm_w_z_param',
-    'lsm_cor_z_param', 'lsm_w_weight_exp_beta_param',
-    'cross_section_width_bottom_n_iters_param',
-    'cross_section_width_bottom_float_atol_param',
-    'cross_section_width_bottom_depth_min_param',
-    'cross_section_width_bottom_depth_rel_min_param',
-    'cross_section_width_bottom_q_quant_param',
-    'cross_section_width_bottom_rel_tol_deb_solver_param',
-    'cross_section_width_bottom_rel_diff_debitance_tol_param',
-    'cross_section_width_bottom_rel_diff_q_tol_param',
-    'cross_section_width_bottom_rel_diff_q_t_thr_param'),
-    'Filtering data parameters': ('q_min_n_nodes_param',
-    'q_min_n_times_param', 'q_min_per_nodes_param', 'q_min_per_times_param'
-    ), 'Algo 31 parameters': ('q_algo31_pdf_param', 'q_bound_coef_param',
-    'q_pdf_std_param', 'q_prior_from_monthly_bool',
-    'q_dry_out_of_bounds_param', 'km_low_param', 'km_up_param',
-    'km_n_iters_param', 'zb_p_low_beta_param', 'zb_p_up_beta_param',
-    'zb_n_iters_param', 'k_dim_param', 'shape03_param', 'local_qm1_param'),
-    'Number of nodes, reaches and time instances': ('total_n_nodes',
-    'total_n_reaches', 'total_n_times'), 'Arrays loaded inputs': (
-    'dist_description', 'time_description', 'q_prior_description',
-    'node_z_init_description', 'node_w_init_description',
-    'reach_da_description', 'reach_s_description', 'reach_w_description'),
-    'Arrays modified inputs': ('node_z_fill_description',
-    'node_z_smooth_description', 'node_w_fill_description',
-    'node_w_smooth_description'), 'Arrays uncertainties': (
-    'node_z_init_low_bound_description', 'node_z_init_up_bound_description',
-    'node_z_fill_low_bound_description', 'node_z_fill_up_bound_description',
-    'node_z_smooth_low_bound_description',
-    'node_z_smooth_up_bound_description',
-    'node_w_init_low_bound_description', 'node_w_init_up_bound_description',
-    'node_w_fill_low_bound_description', 'node_w_fill_up_bound_description',
-    'node_w_smooth_low_bound_description',
-    'node_w_smooth_up_bound_description'), 'Arrays cross-Section': (
-    'cross_section_w_obs_description', 'cross_section_w_ref_description',
-    'cross_section_w_comb_description', 'cross_section_w_reg_description',
-    'cross_section_w_description', 'cross_section_w_out_description',
-    'cross_section_w_min_description', 'cross_section_z_obs_description',
-    'cross_section_z_ref_description', 'cross_section_z_comb_description',
-    'cross_section_z_reg_description', 'cross_section_z_description',
-    'cross_section_z_out_description', 'cross_section_z_min_description',
-    'cross_section_z_out_min_description'), 'Array slope': (
-    'slope_description',), 'Area': ('wet_area_added_zb_loop_description',
-    'wet_area_max_dry_description'), 'Roughness': (
-    'roughness_out_description',), 'Array discharge output': (
-    'reach_q_out_description',)}
-_attr_dict_summary = {'Simulated reach(es)': ('reach_id',),
-    'General parameters': ('algo_version', 'start_datetime_param',
-    'end_datetime_param', 'handle_reaches_param', 'freq_datetime_param'),
-    'Data sources': ('observations_source', 'cross_sections_source',
-    'q_prior_source', 'slope_source'), 'Outlier z params': (
-    'node_z_outlier_removed_bool',), 'Outlier w params': (
-    'node_w_outlier_removed_bool',), 'Smoothing z parameters': (
-    'node_z_smooth_bool', 'lsm_z_x_param', 'lsm_z_t_param'),
-    'Smoothing w parameters': ('node_w_obs_bool', 'lsm_w_x_param',
-    'lsm_w_t_param'), 'Filling missing z parameters': ('node_z_fill_bool',
-    'fill_missing_z_bool', 'fill_missing_z_unobserved_nodes_bool'),
-    'Filling missing w parameters': ('node_w_fill_bool',
-    'fill_missing_w_bool'), 'Slope parameters': ('reach_s_obs_bool',
-    'slope_node_bool', 'reach_s_fixed_bool', 'slope_load_bool',
-    'slope_bool'), 'Cross-Section building parameters': (
-    'cross_section_obs_bool', 'cross_section_ref_bool',
-    'cross_section_comb_bool', 'cross_section_reg_bool',
-    'cross_section_modif_zb_bool', 'cross_section_shrink_zb_bool',
-    'cross_section_use_obs_bool', 'cross_section_build_method_param',
-    'cross_section_bottom_method_param', 'cross_section_bottom_shrink_bool',
-    'cross_section_simp_max_n_points_param'), 'Algo 31 parameters': (
-    'q_algo31_pdf_param', 'q_bound_coef_param', 'q_pdf_std_param',
-    'q_prior_from_monthly_bool', 'km_low_param', 'km_up_param',
-    'km_n_iters_param', 'zb_p_low_beta_param', 'zb_p_up_beta_param',
-    'zb_n_iters_param', 'local_qm1_param'),
-    'Number of nodes, reaches and time instances': ('total_n_nodes',
-    'total_n_reaches', 'total_n_times')}
+_attr_dict = {'Simulated reach(es)': ('reach_id',), 'General parameters': ('algo_version', 'start_datetime_param', 'end_datetime_param', 'handle_reaches_param', 'ref_datetime_param', 'freq_datetime_param', 'float_atol_param'), 'Data sources': ('observations_source', 'cross_sections_source', 'q_prior_source', 'slope_source'), 'Outlier z params': ('node_z_outlier_removed_bool', 'outlier_z_median_n_iters_param', 'outlier_z_space_n_iters_param', 'outlier_z_time_n_iters_param', 'outlier_z_median_thr_param', 'outlier_z_space_thr_param', 'outlier_z_time_thr_param', 'outlier_z_space_w_size_param'), 'Outlier w params': ('node_w_outlier_removed_bool', 'outlier_w_median_n_iters_param', 'outlier_w_space_n_iters_param', 'outlier_w_time_n_iters_param', 'outlier_w_median_thr_param', 'outlier_w_space_thr_param', 'outlier_w_time_thr_param', 'outlier_w_space_w_size_param'), 'Smoothing z parameters': ('node_z_smooth_bool', 'smooth_z_in_space_bool', 'lsm_z_x_param', 'lsm_cor_x_param', 'smooth_z_in_time_bool', 'lsm_z_t_param', 'lsm_cor_t_param', 'lsm_z_min_dz_param', 'lsm_z_inter_bool', 'lsm_z_inter_max_dz_param', 'lsm_z_inter_min_dz_param', 'lsm_z_first_sweep_param', 'lsm_z_remove_bias_in_loop_bool'), 'Smoothing w parameters': ('node_w_obs_bool', 'node_w_smooth_bool', 'smooth_w_in_space_bool', 'lsm_w_x_param', 'smooth_w_in_time_bool', 'lsm_w_t_param', 'lsm_w_min_dw_param', 'lsm_w_first_sweep_param', 'lsm_w_remove_bias_in_loop_bool'), 'Filling missing z parameters': ('node_z_fill_bool', 'fill_missing_z_bool', 'fill_missing_z_unobserved_nodes_bool', 'dx_max_z_in_param', 'dx_max_z_out_param'), 'Filling missing w parameters': ('node_w_fill_bool', 'fill_missing_w_bool', 'fill_missing_w_weight_param', 'fill_missing_w_extrap_min_bool', 'fill_missing_w_extrap_max_bool', 'dx_max_w_in_param', 'dx_max_w_out_param'), 'Slope parameters': ('reach_s_obs_bool', 'slope_node_bool', 'reach_s_fixed_bool', 'slope_load_bool', 'slope_bool', 'slope_from_nodes_method_param', 'slope_lsm_param', 'slope_max_dx_param', 'slope_min_dx_param', 'slope_max_param', 'slope_min_param'), 'Cross-Section building parameters': ('cross_section_obs_bool', 'cross_section_ref_bool', 'cross_section_comb_bool', 'cross_section_reg_bool', 'cross_section_modif_zb_bool', 'cross_section_shrink_zb_bool', 'cross_section_use_obs_bool', 'cross_section_build_method_param', 'cross_section_bottom_method_param', 'cross_section_bottom_shrink_bool', 'cross_section_depth_min_param', 'cross_section_depth_max_param', 'cross_section_width_bottom_check_bool', 'cross_section_width_top_check_bool', 'cross_section_width_top_modify_bool', 'cross_section_width_top_max_angle_param', 'cross_section_width_top_max_dx_param', 'cross_section_float_atol_param', 'cross_section_simp_max_dist_param', 'cross_section_simp_max_n_points_param', 'lsm_w_z_param', 'lsm_cor_z_param', 'lsm_w_weight_exp_beta_param', 'cross_section_width_bottom_n_iters_param', 'cross_section_width_bottom_float_atol_param', 'cross_section_width_bottom_depth_min_param', 'cross_section_width_bottom_depth_rel_min_param', 'cross_section_width_bottom_q_quant_param', 'cross_section_width_bottom_rel_tol_deb_solver_param', 'cross_section_width_bottom_rel_diff_debitance_tol_param', 'cross_section_width_bottom_rel_diff_q_tol_param', 'cross_section_width_bottom_rel_diff_q_t_thr_param'), 'Filtering data parameters': ('q_min_n_nodes_param', 'q_min_n_times_param', 'q_min_per_nodes_param', 'q_min_per_times_param'), 'Algo 31 parameters': ('q_algo31_pdf_param', 'q_bound_coef_param', 'q_pdf_std_param', 'q_prior_from_monthly_bool', 'q_dry_out_of_bounds_param', 'km_low_param', 'km_up_param', 'km_n_iters_param', 'zb_p_low_beta_param', 'zb_p_up_beta_param', 'zb_n_iters_param', 'k_dim_param', 'shape03_param', 'local_qm1_param'), 'Number of nodes, reaches and time instances': ('total_n_nodes', 'total_n_reaches', 'total_n_times'), 'Arrays loaded inputs': ('dist_description', 'time_description', 'q_prior_description', 'node_z_init_description', 'node_w_init_description', 'reach_da_description', 'reach_s_description', 'reach_w_description'), 'Arrays modified inputs': ('node_z_fill_description', 'node_z_smooth_description', 'node_w_fill_description', 'node_w_smooth_description'), 'Arrays uncertainties': ('node_z_init_low_bound_description', 'node_z_init_up_bound_description', 'node_z_fill_low_bound_description', 'node_z_fill_up_bound_description', 'node_z_smooth_low_bound_description', 'node_z_smooth_up_bound_description', 'node_w_init_low_bound_description', 'node_w_init_up_bound_description', 'node_w_fill_low_bound_description', 'node_w_fill_up_bound_description', 'node_w_smooth_low_bound_description', 'node_w_smooth_up_bound_description'), 'Arrays cross-Section': ('cross_section_w_obs_description', 'cross_section_w_ref_description', 'cross_section_w_comb_description', 'cross_section_w_reg_description', 'cross_section_w_description', 'cross_section_w_out_description', 'cross_section_w_min_description', 'cross_section_z_obs_description', 'cross_section_z_ref_description', 'cross_section_z_comb_description', 'cross_section_z_reg_description', 'cross_section_z_description', 'cross_section_z_out_description', 'cross_section_z_min_description', 'cross_section_z_out_min_description'), 'Array slope': ('slope_description',), 'Area': ('wet_area_added_zb_loop_description', 'wet_area_max_dry_description'), 'Roughness': ('roughness_out_description',), 'Array discharge output': ('reach_q_out_description',)}
+_attr_dict_summary = {'Simulated reach(es)': ('reach_id',), 'General parameters': ('algo_version', 'start_datetime_param', 'end_datetime_param', 'handle_reaches_param', 'freq_datetime_param'), 'Data sources': ('observations_source', 'cross_sections_source', 'q_prior_source', 'slope_source'), 'Outlier z params': ('node_z_outlier_removed_bool',), 'Outlier w params': ('node_w_outlier_removed_bool',), 'Smoothing z parameters': ('node_z_smooth_bool', 'lsm_z_x_param', 'lsm_z_t_param'), 'Smoothing w parameters': ('node_w_obs_bool', 'lsm_w_x_param', 'lsm_w_t_param'), 'Filling missing z parameters': ('node_z_fill_bool', 'fill_missing_z_bool', 'fill_missing_z_unobserved_nodes_bool'), 'Filling missing w parameters': ('node_w_fill_bool', 'fill_missing_w_bool'), 'Slope parameters': ('reach_s_obs_bool', 'slope_node_bool', 'reach_s_fixed_bool', 'slope_load_bool', 'slope_bool'), 'Cross-Section building parameters': ('cross_section_obs_bool', 'cross_section_ref_bool', 'cross_section_comb_bool', 'cross_section_reg_bool', 'cross_section_modif_zb_bool', 'cross_section_shrink_zb_bool', 'cross_section_use_obs_bool', 'cross_section_build_method_param', 'cross_section_bottom_method_param', 'cross_section_bottom_shrink_bool', 'cross_section_simp_max_n_points_param'), 'Algo 31 parameters': ('q_algo31_pdf_param', 'q_bound_coef_param', 'q_pdf_std_param', 'q_prior_from_monthly_bool', 'km_low_param', 'km_up_param', 'km_n_iters_param', 'zb_p_low_beta_param', 'zb_p_up_beta_param', 'zb_n_iters_param', 'local_qm1_param'), 'Number of nodes, reaches and time instances': ('total_n_nodes', 'total_n_reaches', 'total_n_times')}

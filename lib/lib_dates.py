@@ -1,13 +1,36 @@
 import netCDF4 as nc
 from datetime import datetime, timedelta
 import numpy as np
+import pandas as pd
+from lib.lib_verif import check_na
 
-def get_swot_dates(folder_swot, reach_id):
-    # 1) Read data from SWOT
-    
-    swot_file = folder_swot + str(reach_id) + "_SWOT.nc"
+def get_swot_dates(node_t):
+    dates_swot = []
+    empty_date = []
+    dates_sect = []
+    for n in range(0, len(node_t)):
+        dates_swot = []
+        empty_date = []
+        for t in range(0, len(node_t[0, :])):
+            if not check_na(node_t[n, t]) and (not node_t[n].mask[t]):
+                dates_swot.append(seconds_to_date(node_t[n, t]))
+                dates_swot[t] = convert_to_YMD(str(dates_swot[t]))
+            else:
+                dates_swot.append('')
+        dates_sect.append(dates_swot)
+    prev_filled = 0
+    index_most_dates = 0
+    for i in range(0, len(dates_sect)):
+        dates = np.array(dates_sect[i])
+        filled_dates_count = np.count_nonzero(dates != '')
+        if prev_filled < filled_dates_count:
+            prev_filled = filled_dates_count
+            index_most_dates = i
+    return dates_sect[index_most_dates]
+
+def get_swot_dates_old(folder_swot, reach_id):
+    swot_file = folder_swot + str(reach_id) + '_SWOT.nc'
     swot_ds = nc.Dataset(swot_file)
-    
     dates_swot = []
     empty_date = []
     dates_sect = []
@@ -15,45 +38,30 @@ def get_swot_dates(folder_swot, reach_id):
         dates_swot = []
         empty_date = []
         for t in range(0, len(swot_ds['node']['time'][0, :])):
-
             if not check_na(swot_ds['node']['time'][n, t]):
                 dates_swot.append(seconds_to_date(swot_ds['node']['time'][n, t]))
-                # print(dates_swot)
-                # print(bug)
-                dates_swot[t] = convert_to_YMD(str(dates_swot[t]))  # convert to Y/M/D for use with SoS
+                dates_swot[t] = convert_to_YMD(str(dates_swot[t]))
             else:
                 dates_swot.append('')
-        
         dates_sect.append(dates_swot)
-    
     prev_filled = 0
     index_most_dates = 0
-    
     for i in range(0, len(dates_sect)):
-        # Assuming 'dates' is your array of dates
         dates = np.array(dates_sect[i])
-        # print(bug)
-        
-        # Count the number of non-empty (filled) dates
         filled_dates_count = np.count_nonzero(dates != '')
-        
         if prev_filled < filled_dates_count:
             prev_filled = filled_dates_count
             index_most_dates = i
-        
-        # print("Number of filled dates:", filled_dates_count)
-    
-    # print(dates_sect[index_most_dates])
-    # print(index_most_dates)
-    # print(bug)
-    
-    return (dates_sect[index_most_dates])
+    return dates_sect[index_most_dates]
 
+def datetime2matlabdn(dt):
+    ord = dt.toordinal()
+    mdn = dt + datetime.timedelta(days=366)
+    frac = (dt - datetime.datetime(dt.year, dt.month, dt.day, 0, 0, 0)).seconds / (24.0 * 60.0 * 60.0)
+    return mdn.toordinal() + frac
 
 def convert_to_YMD(string):
-    # For SWOT
-    return string[0:string.rfind(" ")]
-
+    return string[0:string.rfind(' ')]
 
 def daynum_to_date(day_num, reference_date):
     day_num = day_num
@@ -63,125 +71,75 @@ def daynum_to_date(day_num, reference_date):
     new_datetime = [date.replace(microsecond=0, second=0, minute=0, hour=0) for date in new_datetime]
     return new_datetime
 
-
 def seconds_to_date(seconds, reference_date=None):
-    # print("seconds:", seconds)
-    
     time_delta = seconds * timedelta(seconds=1)
-    
     if reference_date:
         reference_date = datetime.strptime(reference_date, '%Y-%m-%d')
     else:
-        # Define the reference date '2000-01-01 00:00:00' in datetime format
-        reference_date = datetime(2000, 1, 1, 0, 0, 0)  # for SWOT files
-    
-    # Calculate the new datetime by adding the time delta to the reference date
-    
+        reference_date = datetime(2000, 1, 1, 0, 0, 0)
     new_datetime = reference_date + time_delta
-    # print("date:", new_datetime)
-    # print(time_difference)
-    new_datetime = [date.replace(microsecond=0, second=0, minute=0, hour=0) for date in new_datetime]
+    new_datetime = new_datetime.replace(microsecond=0, second=0, minute=0, hour=0)
     return new_datetime
 
-
-def seconds_to_date_old(seconds):  # needed for current version of map generation
-    # print("seconds:", seconds)
-    
+def seconds_to_date_old(seconds):
     time_delta = timedelta(seconds=int(seconds))
-    
-    # Define the reference date '2000-01-01 00:00:00' in datetime format
-    reference_date = datetime(2000, 1, 1, 0, 0, 0)  # for SWOT files
-    
-    # Calculate the new datetime by adding the time delta to the reference date
+    reference_date = datetime(2000, 1, 1, 0, 0, 0)
     new_datetime = reference_date + time_delta
-    
-    # print(time_difference)
     return new_datetime
-
 
 def date_to_seconds(input_date_str):
-    # Define your input date in 'YYYY-MM-DD hh:mm:ss' format
-    # input_date_str = '2002-07-14 12:34:56'
-    
-    # print(input_date_str)
     date_format = check_date_format(input_date_str)
-    # print("format:", date_format)
-    
-    # Convert the input date string to a datetime object
-    # input_date = datetime.strptime(str(input_date_str), '%Y-%m-%d %H:%M:%S')
     input_date = datetime.strptime(str(input_date_str), date_format)
-    
-    # print(input_date)
-    # print(bug)
-    
-    # Define the reference date '2000-01-01 00:00:00' in datetime format
-    reference_date = datetime(2000, 1, 1, 0, 0, 0)  # for SWOT files
-    
-    # Calculate the time difference in seconds
+    reference_date = datetime(2000, 1, 1, 0, 0, 0)
     time_difference = (input_date - reference_date).total_seconds()
-    
-    # print(time_difference)
     return time_difference
 
-
 def read_input_date(input_date_str):
-    # Define your input date in 'YYYY-MM-DD hh:mm:ss' format
-    # input_date_str = '2002-07-14 12:34:56'
-    
-    # print(input_date_str)
     date_format = check_date_format(input_date_str)
-    # print("format:", date_format)
-    
-    # Convert the input date string to a datetime object
-    # input_date = datetime.strptime(str(input_date_str), '%Y-%m-%d %H:%M:%S')
-    # print("date_format:", date_format, input_date_str)
     if date_format != None:
         input_date = datetime.strptime(str(input_date_str), date_format)
-    
     else:
         input_date = None
-    
     return input_date
 
-
 def check_date_format(date_str):
-    # formats_to_check = ['%Y-%m-%d %H:%M:%S', '%Y/%m/%d %H:%M:%S']
     formats_to_check = ['%Y-%m-%d %H:%M:%S', '%Y/%m/%d %H:%M:%S', '%d-%m-%Y %H:%M:%S', '%d-%m-%Y', '%Y-%m-%d']
-    
     for date_format in formats_to_check:
         try:
-            # print(date_format)
             datetime.strptime(str(date_str), date_format)
-            return date_format  # Return the matching format
+            return date_format
         except ValueError:
             pass
-    
-    return None  # None of the formats match
+    return None
 
-def check_na(value):
-    """ check if the specified value is None, '', pd.na, np.nan, is_empty or masked """
-    #By Isadora
-    if value is None:
-        return True
-
-    if value == '':
-        return True
-
-    if value == '--':
-        return True
-
-    try:
-        if pd.isna(value):
+def is_leap_year(year):
+    if year % 4 != 0:
+        return False
+    elif year % 4 == 0:
+        if year % 100 == 0 and year % 400 != 0:
+            return False
+        else:
             return True
-    except TypeError:
-        pass
+
+def count_days_in_months(start_date, end_date, days_in_months):
+    current_date = start_date
+    while current_date < end_date:
+        year_month = (current_date.year, current_date.month)
+        next_month = current_date.replace(day=28) + timedelta(days=4)
+        end_of_month = next_month - timedelta(days=next_month.day)
+        period_end_date = min(end_of_month, end_date - timedelta(days=1))
+        days_in_month = (period_end_date - current_date).days + 1
+        if year_month in days_in_months:
+            days_in_months[year_month] += days_in_month
+        else:
+            days_in_months[year_month] = days_in_month
+        current_date = period_end_date + timedelta(days=1)
+    return days_in_months
+
 def main():
     time = 783925729.161
-    print("time:", time, seconds_to_date(np.array([time]), reference_date="2000-01-01"))
+    print('time:', time, seconds_to_date(np.array([time]), reference_date='2000-01-01'))
     time = 733536312.889
-    print("time:", time, seconds_to_date(np.array([time]), reference_date="2000-01-01"))
-
-
-if __name__ == "__main__":
+    print('time:', time, seconds_to_date(np.array([time]), reference_date='2000-01-01'))
+if __name__ == '__main__':
     main()
-

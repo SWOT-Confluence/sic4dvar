@@ -1,10 +1,3 @@
-"""
-@author:    Callum TYLER, callum.tyler@inrae.fr
-            Dylan QUITTARD, dylan.quittard@inrae.fr
-                All functions not mentioned above.
-            Cécile Cazals, cecile.cazals@cs-soprasteria.com
-                logger
-"""
 import sic4dvar_params as params
 if params.cython_version:
     import sic4dvar_cyfuncs as cy
@@ -18,127 +11,21 @@ import logging
 import inspect
 from pathlib import Path
 import matplotlib.pyplot as plt
-from sic4dvar_functions.cs.j import C
-from Confluence.input.input.extract.CalculateHWS import CalculateHWS
-from Confluence.input.input.extract.DomainHWS import DomainHWS
-from Confluence.input.input.extract.HWS_IO import HWS_IO
-
-
-def calc_q_manning_strickler_with_hyro_radius(km, a, r, s):
-    return math.sqrt(s) * km * a * math.pow(r, 2 / 3)
-
-
-def calc_q_manning_strickler_with_n_old(_A_bar, _A_prime, _S, _n, _W):
-    if check_suitability(_n, _A_bar, _A_prime, _W, _S):
-        return 1 / _n * math.pow(_A_bar + _A_prime, 5 / 3) * math.pow(_W, -
-            2 / 3) * math.pow(_S, 1 / 2)
-    else:
-        return np.nan
-
-
-def calc_q_manning_strickler_with_n(_A_bar, _A_prime, _S, _n, _W):
-    if check_suitability(_n, _A_bar, _A_prime, _W, _S):
-        return 1 / _n * math.pow(_A_bar + _A_prime, 5 / 3) * math.pow(_W, -
-            2 / 3) * math.pow(abs(_S), 1 / 2)
-    else:
-        return np.nan
-
-
-def calc_q_darcyw(_A_bar, _A_prime, _S, _Cf, _W):
-    if check_suitability_DarcyW(_Cf, _A_bar, _A_prime, _W, _S):
-        return 1 / math.pow(_Cf, 1 / 2) * math.pow(_A_bar + _A_prime, 3 / 2
-            ) * math.pow(_W, -1 / 2) * math.pow(9.81 * abs(_S), 1 / 2)
-    else:
-        return np.nan
-
-
-def objective_internal_data_cy(_x, *_pm):
-    arr = np.array(_pm, dtype=np.float64)
-    val = cy.fast_obj_func(arr, _x)
-    return val
-
-
-def objective_internal_data(_x, *_params):
-    sum = 0.0
-    for i in range(len(_params)):
-        check_suitability(_x[1], _x[0], _params[i][1], _params[i][2],
-            _params[i][3])
-        if _x[0] < 0:
-            pass
-        if _params[i][3] > 0.0 and _params[i][2] > 0.0 and _params[i][1
-            ] > params.valid_min_dA:
-            sum += (_params[i][0] - _x[1] ** -1 * (_x[0] + _params[i][1]) **
-                (5 / 3) * _params[i][2] ** (-2 / 3) * _params[i][3] ** (1 / 2)
-                ) ** 2
-    return sum
-
-
-def objective_internal_data_Q_Manning_LW(_x, *_params):
-    sum = 0.0
-    for i in range(len(_params)):
-        check_suitability(_x[1], _x[0], _params[i][1], _params[i][2],
-            _params[i][3])
-        Q_Manning_LW = _x[1] ** -1 * (_x[0] + _params[i][1]) ** (5 / 3
-            ) * _params[i][2] ** (-2 / 3) * _params[i][3] ** (1 / 2)
-        if _x[0] < 0:
-            pass
-        if _params[i][3] > 0.0 and _params[i][2] > 0.0 and _params[i][1
-            ] > params.valid_min_dA:
-            sum += (_params[i][0] - Q_Manning_LW) ** 2
-    return sum
-
-
-def objective_internal_data_Q_DarcyW(_x, *_params):
-    sum = 0.0
-    for i in range(len(_params)):
-        check_suitability_DarcyW(_x[1], _x[0], _params[i][1], _params[i][2],
-            _params[i][3])
-        Q_DarcyW = 1 / math.pow(_x[1], 1 / 2) * math.pow(_x[0] + _params[i]
-            [1], 3 / 2) * math.pow(_params[i][2], -1 / 2) * math.pow(9.81 *
-            abs(_params[i][3]), 1 / 2)
-        if _x[0] < 0:
-            pass
-        if _params[i][3] > 0.0 and _params[i][2] > 0.0 and _params[i][1
-            ] > params.valid_min_dA:
-            sum += (_params[i][0] - Q_DarcyW) ** 2
-    return sum
-
-
-def objective_internal_data_Q_Manning_VK(_x, *_params):
-    z_tot = []
-    w_tot = []
-    dA_tot = []
-    for i in range(len(_params)):
-        z_tot.append(_params[i][4])
-        w_tot.append(_params[i][2])
-        dA_tot.append(_params[i][1])
-    w_tot = np.nan_to_num(w_tot, nan=-np.inf)
-    z_tot = np.array(z_tot)
-    w_tot = np.array(w_tot)
-    sum = 0.0
-    for i in range(len(_params)):
-        max_w = np.maximum(10, w_tot[i])
-        h = (_x[0] + _params[i][1]) / max_w
-        n = _x[1] * math.pow(h, _x[2])
-        Q_Manning_VK = math.pow(n, -1) * math.pow(_x[0] + _params[i][1], 5 / 3
-            ) * math.pow(_params[i][2], -2 / 3) * math.pow(abs(_params[i][3
-            ]), 1 / 2)
-        if _x[0] < 0:
-            pass
-        if _params[i][3] > 0.0 and _params[i][2] > 0.0 and _params[i][1
-            ] > params.valid_min_dA:
-            sum += (_params[i][0] - Q_Manning_VK) ** 2
-    return sum
-
+from sic4dvar_functions.j.z753 import M
+from lib.lib_verif import verify_name_length, check_na
+try:
+    from Confluence.input.input.extract.CalculateHWS import CalculateHWS
+    from Confluence.input.input.extract.DomainHWS import DomainHWS
+    from Confluence.input.input.extract.HWS_IO import HWS_IO
+    Confluence_HWS_method = True
+except ImportError:
+    Confluence_HWS_method = False
 
 def ManningLW(a0, abar, w, s, n):
-    return n ** -1 * (a0 + abar) ** (5 / 3) * w ** (-2 / 3) * abs(s) ** (1 / 2)
-
+    return n ** (-1) * (a0 + abar) ** (5 / 3) * w ** (-2 / 3) * abs(s) ** (1 / 2)
 
 def DarcyW(a0, abar, w, s, cf):
-    return 1 / math.pow(cf, 1 / 2) * math.pow(a0 + abar, 3 / 2) * math.pow(w,
-        -1 / 2) * math.pow(9.81 * abs(s), 1 / 2)
-
+    return 1 / math.pow(cf, 1 / 2) * math.pow(a0 + abar, 3 / 2) * math.pow(w, -1 / 2) * math.pow(9.81 * abs(s), 1 / 2)
 
 def ManningVK(a0, abar, w, s, alpha, beta, z=[]):
     w = np.maximum(10, w)
@@ -146,10 +33,8 @@ def ManningVK(a0, abar, w, s, alpha, beta, z=[]):
     n = alpha * h ** beta
     return ManningLW(a0, abar, w, s, n)
 
-
 def objective_internal_data_Q_any(_x, *_params):
-    parameters_dict = {'q': _params[1][0], 'abar': _params[1][1], 'w':
-        _params[1][2], 's': _params[1][3]}
+    parameters_dict = {'q': _params[1][0], 'abar': _params[1][1], 'w': _params[1][2], 's': _params[1][3]}
     if len(_params[1]) > 4:
         parameters_dict['z'] = _params[1][4]
     bounds_dict = {}
@@ -169,8 +54,7 @@ def objective_internal_data_Q_any(_x, *_params):
                 elif parameter in bounds_dict:
                     function_params[j] = bounds_dict[parameter]
         func_params_dict = dict(zip(param_names, function_params))
-        suitable = check_suitability_any(bounds_dict, parameters_dict,
-            _params[0], t)
+        suitable = check_suitability_any(bounds_dict, parameters_dict, _params[0], t)
         if suitable:
             result = globals()[_params[0]](**func_params_dict)
         else:
@@ -180,19 +64,6 @@ def objective_internal_data_Q_any(_x, *_params):
         else:
             pass
     return sum
-
-
-def check_suitability_old(_n, _A_bar, _A_prime, _W, _S):
-    if _n < 0:
-        return False
-    if _A_bar + _A_prime < 0:
-        return False
-    if _W < 0:
-        return False
-    if _S <= 0:
-        return False
-    return True
-
 
 def check_suitability(_n, _A_bar, _A_prime, _W, _S):
     if _n < 0:
@@ -207,7 +78,6 @@ def check_suitability(_n, _A_bar, _A_prime, _W, _S):
     if _S <= 0:
         return False
     return True
-
 
 def check_suitability_any(bounds_dict, parameters_dict, equation, t):
     params_func = inspect.signature(globals()[equation]).parameters
@@ -230,8 +100,7 @@ def check_suitability_any(bounds_dict, parameters_dict, equation, t):
             print('cf < 0')
             return False
     if 'abar' in func_params_dict:
-        if func_params_dict['abar'] < params.valid_min_dA or check_na(
-            func_params_dict['abar']):
+        if func_params_dict['abar'] < params.valid_min_dA or check_na(func_params_dict['abar']):
             print('Abar < valid_min_dA or Abar is NaN')
             return False
     if 'a0' in func_params_dict:
@@ -256,7 +125,6 @@ def check_suitability_any(bounds_dict, parameters_dict, equation, t):
             return False
     return True
 
-
 def filter_pom(weights, Y1, idist):
     nbw = weights.size
     nby = Y1.size
@@ -274,8 +142,7 @@ def filter_pom(weights, Y1, idist):
         Y2 += [0]
         sumw = 0
         k = 0
-        for j in range(i - math.floor((nbw - 1) / 2), i + math.floor((nbw -
-            1) / 2)):
+        for j in range(i - math.floor((nbw - 1) / 2), i + math.floor((nbw - 1) / 2)):
             k += 1
             if j >= 1 and j < nby:
                 if idist == 0:
@@ -284,22 +151,19 @@ def filter_pom(weights, Y1, idist):
                     if j == 1:
                         poids = weights[k]
                     else:
-                        poids = math.sqrt(ry * (Y1[i] - Y1[j]) ** 2 + rx * 
-                            (i - j) ** 2)
+                        poids = math.sqrt(ry * (Y1[i] - Y1[j]) ** 2 + rx * (i - j) ** 2)
                         poids = weights[k] / poids
                 elif idist == 2:
                     if j == 1:
                         poids = 1
                     else:
-                        poids = math.sqrt(ry * (Y1[i] - Y1[j]) ** 2 + rx * 
-                            (i - j) ** 2)
+                        poids = math.sqrt(ry * (Y1[i] - Y1[j]) ** 2 + rx * (i - j) ** 2)
                         poids = 1 / poids
                 Y2[i] = Y2[i] + poids * Y1[j]
                 sumw = sumw + poids
         Y2[i] = Y2[i] / sumw
     Y2 = np.array(Y2)
     return Y2
-
 
 def f_approx_sections_v6(X, Y, NbIter=4, SeuilDistance=0.1, FSort=2):
     debug = 0
@@ -308,13 +172,13 @@ def f_approx_sections_v6(X, Y, NbIter=4, SeuilDistance=0.1, FSort=2):
     for i in range(len(X)):
         if X[i] != np.nan and Y[i] != np.nan:
             list_to_keep += [i]
-    X_tmp, Y_tmp = np.zeros_like(X), np.zeros_like(Y)
+    X_tmp, Y_tmp = (np.zeros_like(X), np.zeros_like(Y))
     X_tmp = X[list_to_keep]
     Y_tmp = Y[list_to_keep]
     X = np.copy(X_tmp)
     Y = np.copy(Y_tmp)
     if FSort == 0:
-        Xt, Yt = np.copy(X), np.copy(Y)
+        Xt, Yt = (np.copy(X), np.copy(Y))
     elif FSort == 1:
         Yt = np.sort(Y)
         indX = np.argsort(Y)
@@ -346,14 +210,12 @@ def f_approx_sections_v6(X, Y, NbIter=4, SeuilDistance=0.1, FSort=2):
         indY = np.argsort(Y)
         Xt = np.take_along_axis(X, indY, axis=0)
         idist = 1
-        weights = np.append(np.arange(0.1, 1.1, 0.1), np.arange(0.9, 0.0, -0.1)
-            )
+        weights = np.append(np.arange(0.1, 1.1, 0.1), np.arange(0.9, 0.0, -0.1))
         Xt = filter_pom(weights, Xt, idist)
         Yt = filter_pom(weights, Yt, idist)
     elif FSort == 7:
         idist = 1
-        weights = np.append(np.arange(0.1, 1.1, 0.1), np.arange(0.9, 0.0, -0.1)
-            )
+        weights = np.append(np.arange(0.1, 1.1, 0.1), np.arange(0.9, 0.0, -0.1))
         Xt = filter_pom(weights, X, idist)
         Yt = filter_pom(weights, Y, idist)
         Yt = np.sort(Yt)
@@ -368,8 +230,7 @@ def f_approx_sections_v6(X, Y, NbIter=4, SeuilDistance=0.1, FSort=2):
     nb = Xt.size
     C = np.array([0])
     for i in range(1, nb):
-        C = np.append(C, [C[i - 1] + math.sqrt(math.pow(Xt[i] - Xt[i - 1], 
-            2) + math.pow(Yt[i] - Yt[i - 1], 2))])
+        C = np.append(C, [C[i - 1] + math.sqrt(math.pow(Xt[i] - Xt[i - 1], 2) + math.pow(Yt[i] - Yt[i - 1], 2))])
     N = np.zeros(nb)
     N[0] = 1.0
     if nb > 1:
@@ -396,12 +257,12 @@ def f_approx_sections_v6(X, Y, NbIter=4, SeuilDistance=0.1, FSort=2):
                 if N[i] > 0:
                     nav = i
             if nam is not np.nan and nav is not np.nan:
-                x1, y1 = Xt[nam], Yt[nam]
-                x2, y2 = Xt[nav], Yt[nav]
+                x1, y1 = (Xt[nam], Yt[nam])
+                x2, y2 = (Xt[nav], Yt[nav])
                 a = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
                 if a > 0:
                     for j in range(nam, nav):
-                        x, y = Xt[j], Yt[j]
+                        x, y = (Xt[j], Yt[j])
                         d1c = (x1 - x) ** 2 + (y1 - y) ** 2
                         d2c = (x2 - x) ** 2 + (y2 - y) ** 2
                         c = (d1c - d2c) / a
@@ -456,8 +317,7 @@ def f_approx_sections_v6(X, Y, NbIter=4, SeuilDistance=0.1, FSort=2):
         N = N[isY_inv]
         D = D[isY_inv]
         Err = Err[isY_inv]
-    return Xr, Yr, C, N, D, dmax, Err, Xt, Yt
-
+    return (Xr, Yr, C, N, D, dmax, Err, Xt, Yt)
 
 def fnc_APR(_z, _Ws, _Zs):
     nz = len(_z)
@@ -480,18 +340,15 @@ def fnc_APR(_z, _Ws, _Zs):
             pass
         while j < ns and _z[i] > _Zs[j + 1]:
             A[i] = A[i] + (_Ws[j] + _Ws[j + 1]) * (_Zs[j + 1] - _Zs[j])
-            P[i] = P[i] + math.sqrt((_Ws[j + 1] - _Ws[j]) ** 2 + (_Zs[j + 1
-                ] - _Zs[j]) ** 2)
+            P[i] = P[i] + math.sqrt((_Ws[j + 1] - _Ws[j]) ** 2 + (_Zs[j + 1] - _Zs[j]) ** 2)
             j += 1
         if _z[i] > _Zs[j]:
             if j < ns:
-                w[i] = _Ws[j] + (_Ws[j + 1] - _Ws[j]) * (_z[i] - _Zs[j]) / (_Zs
-                    [j + 1] - _Zs[j])
+                w[i] = _Ws[j] + (_Ws[j + 1] - _Ws[j]) * (_z[i] - _Zs[j]) / (_Zs[j + 1] - _Zs[j])
             else:
                 w[i] = _Ws[ns]
             A[i] = A[i] + (_Ws[j] + w[i]) * (_z[i] - _Zs[j])
-            P[i] = P[i] + math.sqrt((w[i] - _Ws[j]) ** 2 + (_z[i] - _Zs[j]) **
-                2)
+            P[i] = P[i] + math.sqrt((w[i] - _Ws[j]) ** 2 + (_z[i] - _Zs[j]) ** 2)
         if P[i] <= 0:
             pass
         P[i] = P[i] * 2
@@ -500,8 +357,7 @@ def fnc_APR(_z, _Ws, _Zs):
             R[i] = A[i] / P[i]
         else:
             R[i] = 0
-    return A, P, R, w
-
+    return (A, P, R, w)
 
 def betad(i_type, k, delay, sp):
     step = 1 / (k - 1)
@@ -521,8 +377,7 @@ def betad(i_type, k, delay, sp):
     for i in range(1, k):
         if yarg_gm[i - 1] > ym:
             ym = yarg_gm[i - 1]
-    return ym, yarg_gm, abet, bbet, cbet
-
+    return (ym, yarg_gm, abet, bbet, cbet)
 
 def betad_old(k, delay, sp):
     step = 1 / (k - 1)
@@ -556,8 +411,7 @@ def betad_old(k, delay, sp):
                     xbet = (i - 1) * step
                     ym = yarg_gm[i - 1]
             dbet += 0.01
-    return ym, yarg_gm, abet, bbet, cbet
-
+    return (ym, yarg_gm, abet, bbet, cbet)
 
 def wgh3(k, abet, bbet, cbet):
     step = 1 / (k - 1)
@@ -567,18 +421,15 @@ def wgh3(k, abet, bbet, cbet):
         yarg_gm[i - 1] = ncbeta(teta, abet, bbet, cbet)
     return yarg_gm
 
-
 def ncbeta(x, a, b, lam):
     const = np.divide(a, b)
-    pz = lambda r: scistats.ncf.pdf(r * (const * (1 - r)) ** -1, 2 * a, 2 *
-        b, lam) * (const * (1 - r) ** 2) ** -1
+    pz = lambda r: scistats.ncf.pdf(r * (const * (1 - r)) ** (-1), 2 * a, 2 * b, lam) * (const * (1 - r) ** 2) ** (-1)
     output = pz(x)
     if np.isnan(output):
         output = 0.0
     if np.isneginf(output):
         output = 0.0
     return output
-
 
 def compute_steady_state(NBS, NBT, Xr_all, Yr_all, H_s, X_s, Zb, Ks, Qsimsic):
     Delta_H = []
@@ -617,21 +468,16 @@ def compute_steady_state(NBS, NBT, Xr_all, Yr_all, H_s, X_s, Zb, Ks, Qsimsic):
         Yr[0] = Zb[ind_s_ss]
         if ind_s_ss == ind_obj_fin:
             Z_ss[ind_s_ss, list_t_ss] = H_s[ind_obj_fin]
-            [A_ss[ind_s_ss, list_t_ss], P_ss_fic, R_ss[ind_s_ss, list_t_ss],
-                w_fic] = fnc_APR(Z_ss[ind_s_ss, list_t_ss], Xr, Yr)
-            V_ss[ind_s_ss, list_t_ss] = np.divide(Q_ss[ind_s_ss, list_t_ss],
-                A_ss[ind_s_ss, list_t_ss])
-            H_ss[ind_s_ss, list_t_ss] = Z_ss[ind_s_ss, list_t_ss
-                ] + c1s2G * np.power(V_ss[ind_s_ss, list_t_ss], 2)
+            [A_ss[ind_s_ss, list_t_ss], P_ss_fic, R_ss[ind_s_ss, list_t_ss], w_fic] = fnc_APR(Z_ss[ind_s_ss, list_t_ss], Xr, Yr)
+            V_ss[ind_s_ss, list_t_ss] = np.divide(Q_ss[ind_s_ss, list_t_ss], A_ss[ind_s_ss, list_t_ss])
+            H_ss[ind_s_ss, list_t_ss] = Z_ss[ind_s_ss, list_t_ss] + c1s2G * np.power(V_ss[ind_s_ss, list_t_ss], 2)
             Iter_ss[ind_s_ss, list_t_ss] = 0
         else:
             dX = abs(X_s[ind_s_ss + 1] - X_s[ind_s_ss])
             for ind_t_ss in list_t_ss:
-                Delta_H_dn = dX * V_ss[ind_s_ss + 1, ind_t_ss] ** 2 / (Ks **
-                    2 * R_ss[ind_s_ss + 1, ind_t_ss] ** c43)
+                Delta_H_dn = dX * V_ss[ind_s_ss + 1, ind_t_ss] ** 2 / (Ks ** 2 * R_ss[ind_s_ss + 1, ind_t_ss] ** c43)
                 Delta_H_to = Delta_H_dn
-                H_ss[ind_s_ss, ind_t_ss] = H_ss[ind_s_ss + 1, ind_t_ss
-                    ] + Delta_H_to
+                H_ss[ind_s_ss, ind_t_ss] = H_ss[ind_s_ss + 1, ind_t_ss] + Delta_H_to
                 iter = 1
                 Delta_H_min = -1
                 Delta_H_max = -1
@@ -641,13 +487,9 @@ def compute_steady_state(NBS, NBT, Xr_all, Yr_all, H_s, X_s, Zb, Ks, Qsimsic):
                     i1 = np.where(H_ss[ind_s_ss, ind_t_ss] <= Hr)[0]
                     if i1.size == 0:
                         Z_ss[ind_s_ss, ind_t_ss] = Yr[-1]
-                        [A_ss[ind_s_ss, ind_t_ss], P_ss[ind_s_ss, ind_t_ss],
-                            R_ss[ind_s_ss, ind_t_ss], w_fic] = fnc_APR([Yr[
-                            -1]], Xr, Yr)
-                        V_ss[ind_s_ss, ind_t_ss] = Q_ss[ind_s_ss, ind_t_ss
-                            ] / A_ss[ind_s_ss, ind_t_ss]
-                        R_ss[ind_s_ss, ind_t_ss] = A_ss[ind_s_ss, ind_t_ss
-                            ] / P_ss[ind_s_ss, ind_t_ss]
+                        [A_ss[ind_s_ss, ind_t_ss], P_ss[ind_s_ss, ind_t_ss], R_ss[ind_s_ss, ind_t_ss], w_fic] = fnc_APR([Yr[-1]], Xr, Yr)
+                        V_ss[ind_s_ss, ind_t_ss] = Q_ss[ind_s_ss, ind_t_ss] / A_ss[ind_s_ss, ind_t_ss]
+                        R_ss[ind_s_ss, ind_t_ss] = A_ss[ind_s_ss, ind_t_ss] / P_ss[ind_s_ss, ind_t_ss]
                         flag_cal = 1
                     else:
                         if np.isnan(Hr[i1[0]]):
@@ -657,7 +499,7 @@ def compute_steady_state(NBS, NBT, Xr_all, Yr_all, H_s, X_s, Zb, Ks, Qsimsic):
                         if i1 == 1 or Fr2[i1 - 1] > 1:
                             i2 = np.where(Fr2 <= 1)[0]
                             if len(i2) == 0:
-                                return Z_ss, A_ss, P_ss, R_ss, np.nan
+                                return (Z_ss, A_ss, P_ss, R_ss, np.nan)
                             else:
                                 if np.isnan(Fr2[i2[0]]):
                                     i2 = i2[1]
@@ -676,32 +518,22 @@ def compute_steady_state(NBS, NBT, Xr_all, Yr_all, H_s, X_s, Zb, Ks, Qsimsic):
                                 p = aa1 * aa2
                                 q = aa1 * (L1 - A1 * aa2)
                                 if q ** 2 / 4 + p ** 3 / 27 < 0.0:
-                                    x0 = np.real(cmath.sqrt(q ** 2 / 4 + p **
-                                        3 / 27))
+                                    x0 = np.real(cmath.sqrt(q ** 2 / 4 + p ** 3 / 27))
                                 else:
                                     x0 = np.sqrt(q ** 2 / 4 + p ** 3 / 27)
-                                x1 = (-q / 2 + x0) ** (1 / 3) + (-q / 2 - x0
-                                    ) ** (1 / 3)
+                                x1 = (-q / 2 + x0) ** (1 / 3) + (-q / 2 - x0) ** (1 / 3)
                                 residu = x1 ** 3 + p * x1 + q
                                 alpha = (x1 - A1) / (A2 - A1)
-                                Zc_ss[ind_s_ss, ind_t_ss] = Z1 + alpha * (Z2 -
-                                    Z1)
-                                Ac_ss[ind_s_ss, ind_t_ss] = A1 + alpha * (A2 -
-                                    A1)
-                                Lc_ss[ind_s_ss, ind_t_ss] = L1 + alpha * (L2 -
-                                    L1)
-                                Pc_ss[ind_s_ss, ind_t_ss] = P1 + alpha * (P2 -
-                                    P1)
-                                Hc_ss[ind_s_ss, ind_t_ss] = Zc_ss[ind_s_ss,
-                                    ind_t_ss] + c1s2G * (Q_ss[ind_s_ss,
-                                    ind_t_ss] / Ac_ss[ind_s_ss, ind_t_ss]) ** 2
+                                Zc_ss[ind_s_ss, ind_t_ss] = Z1 + alpha * (Z2 - Z1)
+                                Ac_ss[ind_s_ss, ind_t_ss] = A1 + alpha * (A2 - A1)
+                                Lc_ss[ind_s_ss, ind_t_ss] = L1 + alpha * (L2 - L1)
+                                Pc_ss[ind_s_ss, ind_t_ss] = P1 + alpha * (P2 - P1)
+                                Hc_ss[ind_s_ss, ind_t_ss] = Zc_ss[ind_s_ss, ind_t_ss] + c1s2G * (Q_ss[ind_s_ss, ind_t_ss] / Ac_ss[ind_s_ss, ind_t_ss]) ** 2
                                 H1 = Hc_ss[ind_s_ss, ind_t_ss]
                                 Z1 = Zc_ss[ind_s_ss, ind_t_ss]
                                 A1 = Ac_ss[ind_s_ss, ind_t_ss]
                                 P1 = Pc_ss[ind_s_ss, ind_t_ss]
-                                residu = 1 / cG * Q_ss[ind_s_ss, ind_t_ss
-                                    ] ** 2 * Lc_ss[ind_s_ss, ind_t_ss] / Ac_ss[
-                                    ind_s_ss, ind_t_ss] ** 3
+                                residu = 1 / cG * Q_ss[ind_s_ss, ind_t_ss] ** 2 * Lc_ss[ind_s_ss, ind_t_ss] / Ac_ss[ind_s_ss, ind_t_ss] ** 3
                                 residu = 1 - np.sqrt(residu)
                         else:
                             H1 = Hr[i1 - 1]
@@ -714,20 +546,17 @@ def compute_steady_state(NBS, NBT, Xr_all, Yr_all, H_s, X_s, Zb, Ks, Qsimsic):
                             A2 = Ar[i1]
                             P2 = Pr[i1]
                             aa1 = (H_ss[ind_s_ss, ind_t_ss] - Z1) / (Z2 - Z1)
-                            aa2 = (Q_ss[ind_s_ss, ind_t_ss] / A1) ** 2 / (c2G *
-                                (Z2 - Z1))
+                            aa2 = (Q_ss[ind_s_ss, ind_t_ss] / A1) ** 2 / (c2G * (Z2 - Z1))
                             a3 = A2 / A1 - 1
                             b1 = aa1 * a3 + 1
                             b2 = aa2 * a3
                             p = -b1 ** 2 / 3
                             q = p * b1 * 2 / 9 + b2
                             if q ** 2 / 4 + p ** 3 / 27 < 0.0:
-                                x0 = np.real(cmath.sqrt(q ** 2 / 4 + p ** 3 /
-                                    27))
+                                x0 = np.real(cmath.sqrt(q ** 2 / 4 + p ** 3 / 27))
                             else:
                                 x0 = np.sqrt(q ** 2 / 4 + p ** 3 / 27)
-                            x1 = (-q / 2 + x0) ** (1 / 3) + (-q / 2 - x0) ** (
-                                1 / 3)
+                            x1 = (-q / 2 + x0) ** (1 / 3) + (-q / 2 - x0) ** (1 / 3)
                             residu = x1 ** 3 + p * x1 + q
                             beta = x1 + b1 / 3
                             alpha = (beta - 1) / a3
@@ -740,12 +569,9 @@ def compute_steady_state(NBS, NBT, Xr_all, Yr_all, H_s, X_s, Zb, Ks, Qsimsic):
                         Z_ss[ind_s_ss, ind_t_ss] = Z1 + alpha * (Z2 - Z1)
                         A_ss[ind_s_ss, ind_t_ss] = A1 + alpha * (A2 - A1)
                         P_ss[ind_s_ss, ind_t_ss] = P1 + alpha * (P2 - P1)
-                        V_ss[ind_s_ss, ind_t_ss] = Q_ss[ind_s_ss, ind_t_ss
-                            ] / A_ss[ind_s_ss, ind_t_ss]
-                        R_ss[ind_s_ss, ind_t_ss] = A_ss[ind_s_ss, ind_t_ss
-                            ] / P_ss[ind_s_ss, ind_t_ss]
-                    Delta_H_up = dX * V_ss[ind_s_ss, ind_t_ss] ** 2 / (Ks **
-                        2 * R_ss[ind_s_ss, ind_t_ss] ** c43)
+                        V_ss[ind_s_ss, ind_t_ss] = Q_ss[ind_s_ss, ind_t_ss] / A_ss[ind_s_ss, ind_t_ss]
+                        R_ss[ind_s_ss, ind_t_ss] = A_ss[ind_s_ss, ind_t_ss] / P_ss[ind_s_ss, ind_t_ss]
+                    Delta_H_up = dX * V_ss[ind_s_ss, ind_t_ss] ** 2 / (Ks ** 2 * R_ss[ind_s_ss, ind_t_ss] ** c43)
                     Delta_H_to_new = 0.5 * (Delta_H_up + Delta_H_dn)
                     Iter_ss[ind_s_ss, ind_t_ss] = iter
                     DH = abs(Delta_H_to_new - Delta_H_to)
@@ -771,16 +597,10 @@ def compute_steady_state(NBS, NBT, Xr_all, Yr_all, H_s, X_s, Zb, Ks, Qsimsic):
                     if Delta_H_min > 0 and Delta_H_max > 0:
                         Delta_H_to_new = (Delta_H_min + Delta_H_max) / 2
                     Delta_H_to = Delta_H_to_new
-                    H_ss[ind_s_ss, ind_t_ss] = H_ss[ind_s_ss, ind_t_ss
-                        ] + Delta_H_to
-        if not np.isnan(Z_ss[ind_s_ss, list_t_ss]) and not np.isnan(H_s[
-            ind_s_ss] and H_s[ind_s_ss] > params.valid_min_z and Z_ss[
-            ind_s_ss, list_t_ss] > params.valid_min_z):
-            cost += (Z_ss[ind_s_ss, list_t_ss] - H_s[ind_s_ss]
-                ) ** 2 / params.sigmaZ ** 2
-    
-    return Z_ss, A_ss, P_ss, R_ss, cost
-
+                    H_ss[ind_s_ss, ind_t_ss] = H_ss[ind_s_ss, ind_t_ss] + Delta_H_to
+        if not np.isnan(Z_ss[ind_s_ss, list_t_ss]) and (not np.isnan(H_s[ind_s_ss] and H_s[ind_s_ss] > params.valid_min_z and (Z_ss[ind_s_ss, list_t_ss] > params.valid_min_z))):
+            cost += (Z_ss[ind_s_ss, list_t_ss] - H_s[ind_s_ss]) ** 2 / params.sigmaZ ** 2
+    return (Z_ss, A_ss, P_ss, R_ss, cost)
 
 def fnc_HAPF(Q, Ws, Zs):
     cG = 9.81
@@ -801,74 +621,28 @@ def fnc_HAPF(Q, Ws, Zs):
     V2 = []
     for i in range(1, ns):
         A[i] = A[i - 1] + (Ws[i - 1] + Ws[i]) * (Zs[i] - Zs[i - 1])
-        P[i] = P[i - 1] + np.sqrt((Ws[i] - Ws[i - 1]) ** 2 + (Zs[i] - Zs[i -
-            1]) ** 2)
+        P[i] = P[i - 1] + np.sqrt((Ws[i] - Ws[i - 1]) ** 2 + (Zs[i] - Zs[i - 1]) ** 2)
     P = P * 2
     Q_transpose = np.array(Q).reshape(nq, 1)
     V2 = np.power(np.divide(Q_transpose, A[1:ns]), 2)
     H[1:ns] = Zs[1:ns] + c1s2G * V2
     Fr2[1:ns] = np.divide(np.multiply(c2sG * V2, Ws[1:ns]), A[1:ns])
-    return H, A, P, Fr2
-
+    return (H, A, P, Fr2)
 
 def likelihood(TDIM, nsobs, lc0, QSample, QPrior, cost_all, Weight):
     LH_pdf = []
     QPost = np.zeros(TDIM)
     Nbeta2 = 0.0
-    
     abet1 = 2.0 ** (float(lc0) - 1) / float(nsobs)
     beta1 = 1.0 / abet1
     for iis in range(len(cost_all)):
         if not pd.isna(cost_all[iis]):
-            LH_pdf += [math.exp(-0.25 / beta1 * float(nsobs) * (cost_all[
-                iis] / np.nanmin(cost_all) - 1.0) ** 2)]
+            LH_pdf += [math.exp(-0.25 / beta1 * float(nsobs) * (cost_all[iis] / np.nanmin(cost_all) - 1.0) ** 2)]
         if pd.isna(cost_all[iis]):
             LH_pdf += [0.0]
         Nbeta2 += Weight[iis] * LH_pdf[iis]
         for ij in range(TDIM):
-            QPost[ij] = QPost[ij] + QSample[iis, ij] * LH_pdf[iis] * Weight[iis
-                ]
-    if Nbeta2 == 0.0 or pd.isna(Nbeta2):
-        pass
-    QPost /= Nbeta2
-    Svar = np.array([])
-    for ij in range(TDIM):
-        temp = 0.0
-        for iis in range(len(cost_all)):
-            temp += (QSample[iis, ij] - QPost[ij]) ** 2 * LH_pdf[iis] * Weight[
-                iis]
-        Svar += [temp]
-    Svar /= Nbeta2
-    distp = 0.0
-    if np.array(Svar).size > 0:
-        for ij in range(TDIM):
-            distp += (QPost[ij] - QPrior[ij]) ** 2 / Svar[ij]
-    distp = distp / TDIM
-    return distp, LH_pdf, QPost
-
-
-def likelihood_2(TDIM, nsobs, lc0, QSample, QPrior, cost_all, Weight):
-    LH_pdf = []
-    QPost = np.zeros(TDIM)
-    Nbeta2 = 0.0
-    if np.log10(2.0 ** (float(lc0) - 1.1)) >= 308:
-        abet1 = np.nan
-        beta1 = np.nan
-    elif nsobs == 0 or pd.isna(nsobs):
-        abet1 = np.nan
-        beta1 = np.nan
-    else:
-        abet1 = 2.0 ** (float(lc0) - 1) / float(nsobs)
-        beta1 = 1.0 / abet1
-    for iis in range(len(cost_all)):
-        if not pd.isna(cost_all[iis]) and not pd.isna(beta1):
-            LH_pdf += [1.0]
-        if pd.isna(cost_all[iis]) or pd.isna(beta1):
-            LH_pdf += [0.0]
-        Nbeta2 += Weight[iis] * LH_pdf[iis]
-        for ij in range(TDIM):
-            QPost[ij] = QPost[ij] + QSample[iis, ij] * LH_pdf[iis] * Weight[iis
-                ]
+            QPost[ij] = QPost[ij] + QSample[iis, ij] * LH_pdf[iis] * Weight[iis]
     if Nbeta2 == 0.0 or pd.isna(Nbeta2):
         pass
     QPost /= Nbeta2
@@ -876,94 +650,14 @@ def likelihood_2(TDIM, nsobs, lc0, QSample, QPrior, cost_all, Weight):
     for ij in range(TDIM):
         temp = 0.0
         for iis in range(len(cost_all)):
-            temp += (QSample[iis, ij] - QPost[ij]) ** 2 * LH_pdf[iis] * Weight[
-                iis]
-        Svar += [temp]
-    Svar /= Nbeta2
-    distp = 0.0
-    if np.array(Svar).size > 0:
-        for ij in range(TDIM):
-            distp += (QPost[ij] - QPrior[ij]) ** 2 / Svar[ij]
-        distp = distp / TDIM
-    return distp, LH_pdf, QPost
-
-
-def likelihood_orig(TDIM, nsobs, lc0, QSample, QPrior, cost_all, Weight):
-    LH_pdf = []
-    QPost = np.zeros(TDIM)
-    Nbeta2 = 0.0
-    abet1 = 2.0 ** (float(lc0) - 1) / float(nsobs)
-    beta1 = 1.0 / abet1
-    for iis in range(len(cost_all)):
-        if not pd.isna(cost_all[iis]):
-            LH_pdf += [math.exp(-0.25 / beta1 * float(nsobs) * (cost_all[
-                iis] / np.nanmin(cost_all) - 1.0) ** 2)]
-        if pd.isna(cost_all[iis]):
-            LH_pdf += [0.0]
-        Nbeta2 += Weight[iis] * LH_pdf[iis]
-        for ij in range(TDIM):
-            QPost[ij] = QPost[ij] + QSample[iis, ij] * LH_pdf[iis] * Weight[iis
-                ]
-    if Nbeta2 == 0.0 or pd.isna(Nbeta2):
-        pass
-    QPost /= Nbeta2
-    Svar = []
-    for ij in range(TDIM):
-        temp = 0.0
-        for iis in range(len(cost_all)):
-            temp += (QSample[iis, ij] - QPost[ij]) ** 2 * LH_pdf[iis] * Weight[
-                iis]
+            temp += (QSample[iis, ij] - QPost[ij]) ** 2 * LH_pdf[iis] * Weight[iis]
         Svar += [temp]
     Svar /= Nbeta2
     distp = 0.0
     for ij in range(TDIM):
         distp += (QPost[ij] - QPrior[ij]) ** 2 / Svar[ij]
     distp = distp / TDIM
-    return distp, LH_pdf, QPost
-
-
-def check_na(value):
-    if value is None:
-        return True
-    if value == '':
-        return True
-    if value == '--':
-        return True
-    if value is np.ma.masked:
-        return True
-    if isinstance(value, np.ma.core.MaskedConstant):
-        return True
-    try:
-        if pd.isna(value):
-            return True
-    except TypeError:
-        pass
-    try:
-        if np.isnan(value):
-            return True
-    except TypeError:
-        pass
-    try:
-        if value.mask:
-            return True
-    except AttributeError:
-        pass
-    try:
-        if value.is_empty:
-            return True
-    except AttributeError:
-        pass
-    return False
-
-
-def verify_name_length(name, extension=''):
-    if len(name) > 200:
-        new_name = name[0:200]
-        new_name = new_name + '[...]' + extension
-    else:
-        new_name = name
-    return new_name
-
+    return (distp, LH_pdf, QPost)
 
 def compute_bb(depth_mean, W0_mean, A0_mean, P0_mean):
     bb = 0.0
@@ -972,12 +666,10 @@ def compute_bb(depth_mean, W0_mean, A0_mean, P0_mean):
         ss1 = A0_mean + W0_mean * bb
         ss2 = P0_mean + 2.0 * bb
         bb = 1.5 * ss1 / ss2 - depth_mean
-        print(ii, bb, (depth_mean + bb0) / (ss1 / ss2), abs(bb0 / bb - 1.0),
-            A0_mean / P0_mean)
+        print(ii, bb, (depth_mean + bb0) / (ss1 / ss2), abs(bb0 / bb - 1.0), A0_mean / P0_mean)
         if abs(bb0 / bb - 1.0) <= 0.01:
             break
     return bb
-
 
 def create_confluence_dict(reach_time, reach_z, reach_w, reach_s):
     ObsData = {}
@@ -985,7 +677,6 @@ def create_confluence_dict(reach_time, reach_z, reach_w, reach_s):
     ObsData['xkm'] = np.nan
     ObsData['L'] = np.nan
     ObsData['nt'] = len(reach_time)
-    
     ObsData['t'] = reach_time
     ObsData['h'] = np.empty((ObsData['nR'], ObsData['nt']))
     ObsData['h0'] = np.empty((ObsData['nR'], 1))
@@ -998,66 +689,44 @@ def create_confluence_dict(reach_time, reach_z, reach_w, reach_s):
     ObsData['sigh'] = 0.1
     ObsData['sigw'] = 10.0
     ObsData['sigS'] = 1.7e-05
-    ObsData['iDelete'] = np.where(np.isnan(ObsData['w'][0, :]) | np.isnan(
-        ObsData['h'][0, :]))
-    
+    ObsData['iDelete'] = np.where(np.isnan(ObsData['w'][0, :]) | np.isnan(ObsData['h'][0, :]))
     return ObsData
 
-
-def bathymetry_computation(node_w, node_z, param_dict, params, input_data=[
-    ], filtered_data=[], slope=[]):
+def bathymetry_computation(node_w, node_z, param_dict, params, input_data=[], filtered_data=[], slope=[]):
     node_xr = []
     node_yr = []
     for i in range(len(node_w)):
         if not params.pankaj_test:
             if param_dict['cs_method'] == 'POM':
-                results = f_approx_sections_v6(node_w[i], node_z[i], params
-                    .approx_section_params[0], params.approx_section_params
-                    [1], params.approx_section_params[2])
+                results = f_approx_sections_v6(node_w[i], node_z[i], params.approx_section_params[0], params.approx_section_params[1], params.approx_section_params[2])
             elif param_dict['cs_method'] == 'Igor':
-                results = C(node_w[i], node_z[i],
-                    max_iter=params.LSMX, cor_z=None, inter_behavior=True,
-                    inter_behavior_min_thr=params.def_float_atol,
-                    inter_behavior_max_thr=params.DX_max_in,
-                    min_change_v_thr=0.0001, first_sweep='forward',
-                    cs_float_atol=params.def_float_atol, number_of_nodes=
-                    len(node_z), plot=False)
-            elif param_dict['cs_method'] == 'Mike':
-                if params.use_reach_slope:
-                    ObsData = create_confluence_dict(filtered_data[
-                        'reach_t'], node_z[i], node_w[i], filtered_data[
-                        'reach_s'])
+                results = M(node_w[i], node_z[i], max_iter=params.LSMX, cor_z=None, inter_behavior=True, inter_behavior_min_thr=params.def_float_atol, inter_behavior_max_thr=params.DX_max_in, min_change_v_thr=0.0001, first_sweep='forward', cs_float_atol=params.def_float_atol, number_of_nodes=len(node_z), plot=False)
+            elif param_dict['cs_method'] == 'Mike' and Confluence_HWS_method:
+                if param_dict['use_reach_slope']:
+                    ObsData = create_confluence_dict(filtered_data['reach_t'], node_z[i], node_w[i], filtered_data['reach_s'])
                 else:
-                    ObsData = create_confluence_dict(filtered_data[
-                        'reach_t'], node_z[i], node_w[i], slope)
+                    ObsData = create_confluence_dict(filtered_data['reach_t'], node_z[i], node_w[i], slope)
                 D = DomainHWS(ObsData)
                 hws_obj = CalculateHWS(D, ObsData)
                 if hasattr(hws_obj, 'area_fit'):
-                    results = [hws_obj.area_fit['w_break'], hws_obj.
-                        area_fit['h_break']]
+                    results = [hws_obj.area_fit['w_break'], hws_obj.area_fit['h_break']]
                     results2 = [hws_obj.wobs, hws_obj.hobs]
+                if i == 10:
+                    print(i)
+                    print(np.nanmin(results2[0]))
             node_xr += [results[0]]
             node_yr += [results[1]]
             if param_dict['cs_plot_debug']:
-                results_pom = f_approx_sections_v6(node_w[i], node_z[i],
-                    params.approx_section_params[0], params.
-                    approx_section_params[1], params.approx_section_params[2])
-                results_igor = C(node_w[i],
-                    node_z[i], max_iter=params.LSMX, cor_z=None,
-                    inter_behavior=True, inter_behavior_min_thr=params.
-                    def_float_atol, inter_behavior_max_thr=params.DX_max_in,
-                    min_change_v_thr=0.0001, first_sweep='forward',
-                    cs_float_atol=params.def_float_atol, number_of_nodes=
-                    len(node_z), plot=False)
-                ObsData = create_confluence_dict(filtered_data['reach_t'],
-                    node_z[i], node_w[i], filtered_data['reach_s'])
-                D = DomainHWS(ObsData)
-                hws_obj = CalculateHWS(D, ObsData)
-                results_mike = [hws_obj.cs_w[0], hws_obj.cs_z[0]]
-                
+                results_pom = f_approx_sections_v6(node_w[i], node_z[i], params.approx_section_params[0], params.approx_section_params[1], params.approx_section_params[2])
+                results_igor = M(node_w[i], node_z[i], max_iter=params.LSMX, cor_z=None, inter_behavior=True, inter_behavior_min_thr=params.def_float_atol, inter_behavior_max_thr=params.DX_max_in, min_change_v_thr=0.0001, first_sweep='forward', cs_float_atol=params.def_float_atol, number_of_nodes=len(node_z), plot=False)
+                if Confluence_HWS_method:
+                    ObsData = create_confluence_dict(filtered_data['reach_t'], node_z[i], node_w[i], filtered_data['reach_s'])
+                    D = DomainHWS(ObsData)
+                    hws_obj = CalculateHWS(D, ObsData)
+                    results_mike = [hws_obj.cs_w[0], hws_obj.cs_z[0]]
+                    plt.plot(results_mike[0], results_mike[1])
                 plt.plot(results_pom[0], results_pom[1])
                 plt.plot(results_igor[0], results_igor[1])
-                plt.plot(results_mike[0], results_mike[1])
                 plt.plot(node_w[i], node_z[i], marker='.', linestyle='None')
                 plt.show()
                 plt.clf()
@@ -1068,14 +737,11 @@ def bathymetry_computation(node_w, node_z, param_dict, params, input_data=[
         nodes2 = (node_x - node_x[0]) / 1000
         reach_id = str(input_data['reach_id'])
         reach_id = verify_name_length(reach_id)
-        output_path = param_dict['output_dir'].joinpath('gnuplot_data', str
-            (reach_id))
+        output_path = param_dict['output_dir'].joinpath('gnuplot_data', str(reach_id))
         if not Path(output_path).is_dir():
             Path(output_path).mkdir(parents=True, exist_ok=True)
-        output_path = param_dict['output_dir'].joinpath('gnuplot_data', str
-            (reach_id), 'cs')
-    return node_xr, node_yr
-
+        output_path = param_dict['output_dir'].joinpath('gnuplot_data', str(reach_id), 'cs')
+    return (node_xr, node_yr)
 
 def call_func_APR(node_w, node_z, node_xr, node_yr, params, param_dict):
     node_a = node_w.copy()
@@ -1087,40 +753,31 @@ def call_func_APR(node_w, node_z, node_xr, node_yr, params, param_dict):
     P0_mean = []
     W0_mean = []
     for i in range(len(node_w)):
-        node_a[i], node_p[i], node_r[i], node_w_simp[i] = fnc_APR(node_z[i],
-            node_xr[i], node_yr[i])
+        node_a[i], node_p[i], node_r[i], node_w_simp[i] = fnc_APR(node_z[i], node_xr[i], node_yr[i])
         depth_section = 0.0
         if param_dict['bb_computation']:
             depth_section = np.nanmax(node_yr[i]) - np.nanmin(node_yr[i])
             A0 = 0
             P0 = node_xr[i][0]
             for j in range(0, len(node_xr[i]) - 1):
-                A0 = A0 + (node_xr[i][j] + node_xr[i][j + 1]) / 2 * (node_yr
-                    [i][j + 1] - node_yr[i][j])
-                P0 = P0 + 2 * np.sqrt((node_xr[i][j + 1] / 2 - node_xr[i][j
-                    ] / 2) ** 2 + (node_yr[i][j + 1] - node_yr[i][j]) ** 2)
-                if node_yr[i][j] - np.nanmin(node_yr[i]) > (np.nanmax(
-                    node_yr[i]) - np.nanmin(node_yr[i])) / 2:
-                    depth_section = (np.nanmax(node_yr[i]) - np.nanmin(
-                        node_yr[i])) / 2
+                A0 = A0 + (node_xr[i][j] + node_xr[i][j + 1]) / 2 * (node_yr[i][j + 1] - node_yr[i][j])
+                P0 = P0 + 2 * np.sqrt((node_xr[i][j + 1] / 2 - node_xr[i][j] / 2) ** 2 + (node_yr[i][j + 1] - node_yr[i][j]) ** 2)
+                if node_yr[i][j] - np.nanmin(node_yr[i]) > (np.nanmax(node_yr[i]) - np.nanmin(node_yr[i])) / 2:
+                    depth_section = (np.nanmax(node_yr[i]) - np.nanmin(node_yr[i])) / 2
                     break
             if False:
-                results2 = f_approx_sections_v6(node_w[i], node_z[i],
-                    params.approx_section_params[0], params.
-                    approx_section_params[1], params.approx_section_params[2])
+                results2 = f_approx_sections_v6(node_w[i], node_z[i], params.approx_section_params[0], params.approx_section_params[1], params.approx_section_params[2])
                 plt.plot(node_xr[i], node_yr[i])
                 plt.plot(results2[0], results2[1])
                 plt.plot(node_w[i], node_z[i], marker='.', linestyle='None')
-                print('A0, P0, R, depth, depth/R:', A0, P0, A0 / P0,
-                    depth_section, depth_section / (A0 / P0))
+                print('A0, P0, R, depth, depth/R:', A0, P0, A0 / P0, depth_section, depth_section / (A0 / P0))
                 plt.show()
                 plt.clf()
             A0_mean.append(A0)
             P0_mean.append(P0)
             W0_mean.append(node_xr[i][0])
         index_temp = np.where(node_w_simp[i] == 0.0)
-        node_w_simp[i][index_temp] = np.nanmin(node_xr[i][np.where(node_xr[
-            i] > 0.0)])
+        node_w_simp[i][index_temp] = np.nanmin(node_xr[i][np.where(node_xr[i] > 0.0)])
         depth_mean.append(depth_section)
     if not param_dict['bb_computation']:
         bb = 9999.0
@@ -1129,13 +786,41 @@ def call_func_APR(node_w, node_z, node_xr, node_yr, params, param_dict):
         A0_mean = np.nanmean(A0_mean)
         P0_mean = np.nanmean(P0_mean)
         W0_mean = np.nanmean(W0_mean)
-        print(':', depth_mean, A0_mean,
-            P0_mean, W0_mean)
-        print(':', A0_mean / P0_mean, depth_mean / (A0_mean /
-            P0_mean))
+        print('depth_mean, A0_mean, P0_mean, W0_mean:', depth_mean, A0_mean, P0_mean, W0_mean)
+        print('mean Radius:', A0_mean / P0_mean, depth_mean / (A0_mean / P0_mean))
         bb = compute_bb(depth_mean, W0_mean, A0_mean, P0_mean)
-        print('', bb)
+        print('Final computed bb:', bb)
         if bb < 1:
             bb = 1
-        print(':', bb)
-    return node_a, node_p, node_r, node_w_simp, bb
+        print('Final bb:', bb)
+    return (node_a, node_p, node_r, node_w_simp, bb)
+
+def compute_mean_discharge_from_SoS_quantiles(quantiles):
+    nq = len(quantiles)
+    bin = 1.0 / nq
+    quant = np.zeros(nq + 1)
+    dquant = np.zeros(nq + 1)
+    for i in range(0, nq):
+        quant[i] = quantiles[i]
+    dquant[0] = (3.0 * quant[0] - quant[2]) / 2.0
+    for i in range(0, nq - 1):
+        dquant[i + 1] = (quant[i] + quant[i + 1]) / 2.0
+    dquant[nq] = (3.0 * quant[nq - 1] - quant[nq - 2]) / 2.0
+    for i in range(0, nq + 1):
+        quant[i] = dquant[nq - i]
+    for i in range(0, nq):
+        dquant[i] = bin / (quant[i + 1] - quant[i]) * (quant[i + 1] - quant[i])
+    ss = 0.0
+    ss1 = 0.0
+    for i in range(0, nq):
+        ss = ss + (quant[i + 1] + quant[i]) / 2.0 * dquant[i]
+        ss1 = ss1 + dquant[i]
+    quant_mean = ss / ss1
+    ss = 0.0
+    ss1 = 0.0
+    quant_var = 0.0
+    for i in range(0, nq):
+        ss = ss + ((quant[i + 1] + quant[i]) / 2.0 - quant_mean) ** 2 * dquant[i]
+        ss1 = ss1 + dquant[i]
+    quant_var = np.sqrt(ss / ss1)
+    return (quant_mean, quant_var)

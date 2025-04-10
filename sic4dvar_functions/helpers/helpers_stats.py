@@ -1,54 +1,31 @@
-"""
-Created on March 11th 2024 at 10:00
-by @Isadora Silva
-
-Last modified on April 18th 2024 at 07:00
-by @Isadora Silva
-
-@authors: Isadora Silva
-"""
-
 import pathlib
 import statistics
 from typing import Iterable
-
 import numpy as np
 import pandas as pd
 from sklearn import metrics
-
 from sic4dvar_functions.helpers.helpers_arrays import arrays_rmv_nan_pair
 from sic4dvar_functions.helpers.helpers_plot import helper_plot_scatter
 
-
 class StatsSummarizer:
-    def __init__(
-            self,
-            simulated_data: np.ndarray | Iterable,
-            validation_data: np.ndarray | Iterable,
-    ):
+
+    def __init__(self, simulated_data: np.ndarray | Iterable, validation_data: np.ndarray | Iterable):
         simulated_data, validation_data, _ = arrays_rmv_nan_pair(x0=simulated_data, y0=validation_data)
-
         if simulated_data.size == 0:
-            pass
-
+            raise IndexError('no data left after removing NaN pair')
         argsort_sim = np.argsort(simulated_data)
         validation_data = validation_data[argsort_sim]
         simulated_data = simulated_data[argsort_sim]
-
-        self._sim, self._val = simulated_data, validation_data
-
+        self._sim, self._val = (simulated_data, validation_data)
         self._df = pd.DataFrame({'sim': self._sim, 'val': self._val})
         self._df['error'] = self._df['val'] - self._df['sim']
         self._df['relative_error'] = self._df['error'] / self._df['val']
-
         self._validation_mean: float = np.nan
         self._validation_variance: float = np.nan
         self._validation_quantiles: np.array = np.empty(0)
-
         self._simulation_mean: float = np.nan
         self._simulation_variance: float = np.nan
         self._simulation_quantiles: np.array = np.empty(0)
-
         self._me: float = np.nan
         self._mre: float = np.nan
         self._mae: float = np.nan
@@ -57,7 +34,6 @@ class StatsSummarizer:
         self._msre: float = np.nan
         self._maxe: float = np.nan
         self._maxre: float = np.nan
-
         self._covariance: float = np.nan
         self._correlation: float = np.nan
         self._r2: float = np.nan
@@ -70,12 +46,9 @@ class StatsSummarizer:
 
     @property
     def df_stats(self):
-        df_stats = pd.DataFrame(index=[
-            'me', 'mae', 'mse', 'rmse', 'maxe',
-            'mre', 'mare', 'msre', 'rmsre', 'maxre',
-            'covariance', 'correlation', 'r2', 'nse', 'kge', ], columns=["value", ])
+        df_stats = pd.DataFrame(index=['me', 'mae', 'mse', 'rmse', 'maxe', 'mre', 'mare', 'msre', 'rmsre', 'maxre', 'covariance', 'correlation', 'r2', 'nse', 'kge'], columns=['value'])
         for i in df_stats.index:
-            df_stats.loc[i, "value"] = self.__getattribute__(i)
+            df_stats.loc[i, 'value'] = self.__getattribute__(i)
         df_stats = df_stats.round(3)
         return df_stats
 
@@ -98,7 +71,7 @@ class StatsSummarizer:
     @property
     def validation_quantiles(self):
         if self._validation_quantiles.size == 0:
-            self._validation_quantiles = np.nanquantile(self._val, [0., 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.])
+            self._validation_quantiles = np.nanquantile(self._val, [0.0, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0])
         return self._validation_quantiles
 
     @property
@@ -120,7 +93,7 @@ class StatsSummarizer:
     @property
     def simulation_quantiles(self):
         if self._simulation_quantiles.size == 0:
-            self._simulation_quantiles = np.nanquantile(self._sim, [0., 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.])
+            self._simulation_quantiles = np.nanquantile(self._sim, [0.0, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0])
         return self._simulation_quantiles
 
     @property
@@ -156,7 +129,7 @@ class StatsSummarizer:
     @property
     def msre(self):
         if np.isnan(self._msre):
-            self._msre = np.nanmean((self._df['error'] ** 2) / (self._df['val'] ** 2))
+            self._msre = np.nanmean(self._df['error'] ** 2 / self._df['val'] ** 2)
         return self._msre
 
     @property
@@ -202,7 +175,7 @@ class StatsSummarizer:
         if np.isnan(self._nse):
             nse_num = np.nansum(self._df['error'] ** 2)
             nse_den = np.nansum((self._val - self.validation_mean) ** 2)
-            self._nse = 1 - (nse_num / nse_den)
+            self._nse = 1 - nse_num / nse_den
         return self._nse
 
     @property
@@ -214,67 +187,21 @@ class StatsSummarizer:
             kse_cor = r - 1
             kse_var = alfa - 1
             kse_bias = beta - 1
-            self._kge = 1 - np.sqrt((kse_cor ** 2) + (kse_var ** 2) + (kse_bias ** 2))
+            self._kge = 1 - np.sqrt(kse_cor ** 2 + kse_var ** 2 + kse_bias ** 2)
         return self._kge
 
-    def plot(
-            self,
-            show: bool = True,
-            title: str = 'Sim x Val',
-            x_axis_title: str = 'simulation',
-            y_axis_title: str = 'validation',
-            x_lim: Iterable | None = None,
-            y_lim: Iterable | None = None,
-            fig_width: int = 5,
-            fig_height: int = 5,
-            add_params: tuple = ('r2', 'correlation',),
-            output_file: str | bytes | pathlib.PurePath | None = None,
-    ):
+    def plot(self, show: bool=True, title: str='Sim x Val', x_axis_title: str='simulation', y_axis_title: str='validation', x_lim: Iterable | None=None, y_lim: Iterable | None=None, fig_width: int=5, fig_height: int=5, add_params: tuple=('r2', 'correlation'), output_file: str | bytes | pathlib.PurePath | None=None):
         add_text_bottom_right = ''
         if add_params:
             for k in add_params:
                 v = getattr(self, k)
-                add_text_bottom_right += "\n\t{}: {:.3f}".format(k, v)
-        helper_plot_scatter(
-            xs=[self._sim,],
-            ys=[self._val,],
-            show=show,
-            title=title,
-            x_axis_title=x_axis_title,
-            y_axis_title=y_axis_title,
-            x_lim=x_lim,
-            y_lim=y_lim,
-            fig_width=fig_width,
-            fig_height=fig_height,
-            add_identity_line=True,
-            add_text_bottom_right=add_text_bottom_right,
-            output_file=output_file,
-        )
+                add_text_bottom_right += '\n\t{}: {:.3f}'.format(k, v)
+        helper_plot_scatter(xs=[self._sim], ys=[self._val], show=show, title=title, x_axis_title=x_axis_title, y_axis_title=y_axis_title, x_lim=x_lim, y_lim=y_lim, fig_width=fig_width, fig_height=fig_height, add_identity_line=True, add_text_bottom_right=add_text_bottom_right, output_file=output_file)
 
     def __repr__(self):
         basestr = 'StatsSummarizer('
-        for k in [
-            'validation_mean',
-            'validation_std',
-            'simulation_mean',
-            'simulation_std',
-            'me',
-            'mae',
-            'mse',
-            'rmse',
-            'maxe',
-            'mre',
-            'mare',
-            'msre',
-            'rmsre',
-            'maxre',
-            'covariance',
-            'correlation',
-            'r2',
-            'nse',
-            'kge',
-        ]:
+        for k in ['validation_mean', 'validation_std', 'simulation_mean', 'simulation_std', 'me', 'mae', 'mse', 'rmse', 'maxe', 'mre', 'mare', 'msre', 'rmsre', 'maxre', 'covariance', 'correlation', 'r2', 'nse', 'kge']:
             v = getattr(self, k)
-            basestr += "\n\t{:16}: {:.3f},".format(k, v)
-        basestr += ")"
+            basestr += '\n\t{:16}: {:.3f},'.format(k, v)
+        basestr += ')'
         return basestr

@@ -5,14 +5,14 @@ from sic4dvar_functions.helpers.helpers_arrays import iterable_to_flattened_arra
 def P(x_array,y_array):B,C=A.polyfit(x_array,y_array,1);return C,B
 def D(values_in_array,base_in_array,limits=None,check_nan=True,float_atol=C().def_float_atol):
 	W='lin';S=float_atol;R=base_in_array;Q=values_in_array;G=limits
-	if any([isinstance(B,A.ma.MaskedArray)for B in[Q,R]]):0
+	if any([isinstance(B,A.ma.MaskedArray)for B in[Q,R]]):raise NotImplementedError('')
 	B,F=[X(A)for A in[Q,R]]
 	if check_nan:
-		if A.any(A.isnan(F)):0
+		if A.any(A.isnan(F)):raise RuntimeError('')
 	if not G:J=I(left=A.nan,right=A.nan)
 	elif'fill'in G.lower():J=I()
 	elif W in G.lower():J=I(left=A.nan,right=A.nan)
-	else:0
+	else:raise TypeError('')
 	C=A.isfinite(B);H=C.nonzero()[0];E,D=H[[0,-1]]
 	if A.all(C):return B
 	if A.count_nonzero(C)<2:return B
@@ -39,7 +39,7 @@ def D(values_in_array,base_in_array,limits=None,check_nan=True,float_atol=C().de
 			else:N=V+L*F[D+1]
 		if D+1<C.size-1:B[D+1:]=N
 		else:B[D+1]=N
-	if A.count_nonzero(A.isnan(B))>0:0
+	if A.count_nonzero(A.isnan(B))>0:raise AssertionError('')
 	return B
 if __name__=='__main__':
 	E=0
