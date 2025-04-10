@@ -250,7 +250,7 @@ class algorithms:
         logging.info(f'')
         flag_qwbm = True
         logging.info(f'')
-        if (calc.check_na(self.input_data['reach_qwbm']) or self.input_data['reach_qwbm'] < 1.0) and (not self.params['q_prior_from_stations']):
+        if (calc.check_na(self.input_data['reach_qwbm']) or self.input_data['reach_qwbm'] < 1.0) and (not self.param_dict['q_prior_from_stations']):
             logging.info('')
             logging.info('')
             flag_qwbm = False
