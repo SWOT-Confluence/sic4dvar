@@ -6,7 +6,7 @@ simplefilter(action='ignore', category=DeprecationWarning)
 import sys
 import sic4dvar_params as params
 from sic4dvar_functions.sic4dvar_runs import *
-from lib.lib_log import set_logger, append_to_principal_log, call_error_message
+from lib.lib_log import append_to_principal_log, call_error_message
 from lib.lib_config import read_config
 from sic4dvar_functions.sic4dvar_helper_functions import get_run_type
 

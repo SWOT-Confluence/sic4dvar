@@ -10,35 +10,42 @@ def call_error_message(error_code):
         message = log_messages['999']
     return message
 
-def set_logger(loglevel, filename=None):
+def set_logger(param_dict, filename=None):
+    if param_dict['verbose'] :
+        loglevel = logging.DEBUG
+    else :
+        loglevel = logging.ERROR
     logFormatter = logging.Formatter('%(asctime)s [%(levelname)-4.4s]  %(message)s')
     logger = logging.getLogger()
     logger.setLevel(level=loglevel)
     consoleHandler = logging.StreamHandler()
     consoleHandler.setFormatter(logFormatter)
     logger.addHandler(consoleHandler)
-    if filename:
+    if param_dict['verbose'] :
         if os.path.exists(filename):
             os.remove(filename)
         fileHandler = logging.FileHandler(filename)
         fileHandler.setFormatter(logFormatter)
         logger.addHandler(fileHandler)
 
-def close_logger():
-    logger = logging.getLogger()
-    while logger.hasHandlers():
-        logger.removeHandler(logger.handlers[0])
+def close_logger(param_dict):
+    if not param_dict["verbose"]:
+        logger = logging.getLogger()
+        while logger.hasHandlers():
+            logger.removeHandler(logger.handlers[0])
 
 def append_to_principal_log(param_dict, message):
-    log_path = param_dict['log_path']
-    if not log_path.parent.exists():
-        os.makedirs(log_path.parent, exist_ok=True)
-    with open(log_path, 'a+') as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        f.seek(0)
-        if f.read(1) == '':
-            f.write(f'Configuration is : \n')
-            for k, v in param_dict.items():
-                f.write(f'     {k} : {v}\n')
-        f.write(message + '\n')
-        fcntl.flock(f, fcntl.LOCK_UN)
+    if param_dict["verbose"]:
+        log_path = param_dict['log_path']
+        if not log_path.parent.exists():
+            os.makedirs(log_path.parent, exist_ok=True)
+        with open(log_path, 'a+') as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            f.seek(0)
+            if f.read(1) == '': # file empty
+                f.write(f'Configuration is : \n')
+                for k, v in param_dict.items():
+                    f.write(f'     {k} : {v}\n')
+            f.write(message+'\n')
+            fcntl.flock(f, fcntl.LOCK_UN)
+

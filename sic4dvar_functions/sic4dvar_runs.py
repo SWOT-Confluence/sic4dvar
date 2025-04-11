@@ -35,7 +35,7 @@ def execute_method(args):
 def seq_run(param_dict, reach_dict):
     try:
         log_path = param_dict['log_dir'].joinpath('sic4dvar_' + str(reach_dict['reach_id']) + '.log')
-        set_logger(logging.INFO, log_path)
+        set_logger(param_dict, log_path)
         logging.info(f'Run reach {reach_dict['reach_id']}')
         logging.info('Reach infos : ')
         for k, val in reach_dict.items():
@@ -87,7 +87,7 @@ def seq_run(param_dict, reach_dict):
         logging.error(f'Error computing reach_id {reach_dict['reach_id']}: {e} ... skip')
         if not param_dict['safe_mode']:
             return -1
-    close_logger()
+    close_logger(param_dict)
 
 def run_parallel(param_dict, down, upper, max_procs=4):
     manager = mp.Manager()
@@ -189,7 +189,7 @@ def sic4dvar_set_run(param_dict):
         reach_list_str = verify_name_length('_'.join(reach_list))
         log_name = 'sic4dvar_' + reach_list_str + '.log'
         log_path = param_dict['log_dir'].joinpath(log_name)
-        set_logger(logging.INFO, log_path)
+        set_logger(param_dict, log_path)
         logging.info('Processing set %d over %d with %d reaches: %s' % (i_set, upper, len(reach_list), ' '.join(reach_list)))
         run_flag = True
         processed = []
@@ -451,7 +451,7 @@ def sic4dvar_set_run(param_dict):
                     logging.info('Force saving for AWS.')
         t_set1 = datetime.datetime.utcnow()
         logging.info('Run time for current set is = %s.', str(t_set1 - t_reach0))
-        close_logger()
+        close_logger(param_dict)
     t1 = datetime.datetime.utcnow()
     logging.info('Run time in total= %s.', str(t1 - t0))
 

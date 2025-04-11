@@ -54,7 +54,7 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
     if abs(Zb1) > Wmean:
         Zb1 = -Wmean + dZb
         dZb = (Zb1 - Zb2) / 20
-    print('Zb1, Zb2, dZb, bb:', Zb1, Zb2, dZb, bb)
+    logging.debug('Zb1, Zb2, dZb, bb:', Zb1, Zb2, dZb, bb)
     if params.pankaj_test:
         Zb1 = 0.0
         Zb2 = 0.0
