@@ -1,3 +1,23 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+SIC4DVAR-LC
+Copyright (C) 2025 INRAE
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
 L='node'
 K='width'
 H='wse'
@@ -72,4 +92,3 @@ def N(w0_array,z0_array,cor_z=F,extrapolate_min=D,extrapolate_max=D,first_sweep=
 		for d in f(K):L[A1[d]]=z(N[d]);M[A1[d]]=z(N[d])
 		P.append(I.deepcopy(B/2));Q.append(I.deepcopy(C));R.append('-');L.append('black');T.append(2.5);S.append('');U.append(O);V.append(4.);M.append(O);A7(xs=P,ys=Q,show=J,x_lim=(.9*A.nanmin(B/2),1.1*A.nanmax(B/2)),y_lim=(.9*A.nanmin(C),1.1*A.nanmax(C)),line_styles=R,line_widths=T,line_colors=L,line_labels=S,marker_styles=U,marker_sizes=V,marker_fill_colors=M,title=plot_title,x_axis_title='',y_axis_title='',fig_width=15,fig_height=5,add_legend=J)
 	return B,C
-
