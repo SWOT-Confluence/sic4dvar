@@ -1,3 +1,23 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+SIC4DVAR-LC
+Copyright (C) 2025 INRAE
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
 R='node'
 L='width'
 K='wse'
@@ -195,4 +215,3 @@ def h(values0_array,space0_array,weight0_array,values_avg0_array,weight_avg0_arr
 	if not U:0
 	if g:E=G(E,fill_value=h)
 	return E
-

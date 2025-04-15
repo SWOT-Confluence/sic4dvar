@@ -1,3 +1,23 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+SIC4DVAR-LC
+Copyright (C) 2025 INRAE
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
 n='node_q'
 m='time'
 b='width'
@@ -247,4 +267,3 @@ def v(dim,value0_array,base0_array,max_iter,cor,min_change_v_thr=C.def_float_ato
 		if G==0:E[C,:]=Y;H[C,:]=O;I[C,:]=P
 		else:E[:,C]=Y;H[:,C]=O;I[:,C]=P
 	return E,H,I,V
-
