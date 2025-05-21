@@ -6,7 +6,7 @@ resource "aws_batch_job_definition" "generate_batch_jd_sic4dvar" {
   propagate_tags = true
   tags = { "job_definition" = "${var.prefix}-validation" }
   container_properties = jsonencode({
-    image = "${local.account_id}.dkr.ecr.us-west-2.amazonaws.com/${var.prefix}-sic4dvar =${var.image_tag}",
+    image = "${local.account_id}.dkr.ecr.us-west-2.amazonaws.com/${var.prefix}-sic4dvar:${var.image_tag}",
     executionRoleArn = var.iam_execution_role_arn
     jobRoleArn = var.iam_job_role_arn
     fargatePlatformConfiguration = { "platformVersion" = "LATEST" },
