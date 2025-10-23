@@ -120,13 +120,17 @@ def main():
     parser.add_argument('-i', '--index', help='json file index for reach/set', type=int)
     args = parser.parse_args()
     if params.replace_config:
-        args.config_file_path = pathlib.Path(params.config_file_path)
+        args.config_file_path = pathlib.Path(__file__).parent / params.config_file_path
+
     param_dict = read_config(args.config_file_path)
     explicit_args = get_explicit_args(parser)
     args_dict = vars(args)
     for key in explicit_args:
         param_dict[key] = args_dict[key]
-    param_dict['log_path'] = param_dict['log_dir'].joinpath('sic4dvar.log')
+
+    if 'log_dir' in param_dict.keys() :
+        param_dict['log_path'] = param_dict['log_dir'].joinpath('sic4dvar.log')
+
     if not param_dict['output_dir'].exists():
         param_dict['output_dir'].mkdir(parents=True, exist_ok=True)
     append_to_principal_log(param_dict, 'Running SIC4DVAR low cost')

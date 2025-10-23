@@ -73,6 +73,7 @@ start_date = datetime(2023, 7, 12)
 end_date = datetime(2025, 12, 31)
 replace_config = True
 config_file_path = 'sic4dvar_param_confluence.ini'
+log_dir = '/mnt/data/input/log/'
 densification = False
 num_cores = multiprocessing.cpu_count()
 max_cores = int(num_cores / 2)
