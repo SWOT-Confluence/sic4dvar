@@ -17,13 +17,38 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+@authors: Callum TYLER, callum.tyler@inrae.fr 
+            All functions not mentioned below.
+          Hind OUBANAS, hind.oubanas@inrae.fr
+            All functions not mentioned below.
+          Nikki TEBALDI, ntebaldi@umass.edu
+            get_input_data(),
+            write_output(),
+            get_reachids(),
+            get_reach_dataset(),
+            part of main()
+        Dylan QUITTARD, dylan.quittard@inrae.fr
+            All functions not mentioned above.
+        Cécile Cazals, cecile.cazals@cs-soprasteria.com
+            logger
+            
+Description:
+    Version of algo31 and algo5 combined into algo315 (sic4dvar) which can 
+    run on Confluence.
+    NOTE this code is for use only for computational resource testing. 
+    Numerous modification need to be made to run accurately on confluence.
+    See the TODO list at the top of this file.
 """
+
+#>----------------------------------------------------------------------------<
+
 import argparse, configparser
 import pathlib
 import datetime
 from warnings import simplefilter
 simplefilter(action='ignore', category=DeprecationWarning)
 import sys
+import time
 import sic4dvar_params as params
 from sic4dvar_functions.sic4dvar_runs import *
 from lib.lib_log import append_to_principal_log, call_error_message
@@ -95,31 +120,39 @@ def main():
     parser.add_argument('-i', '--index', help='json file index for reach/set', type=int)
     args = parser.parse_args()
     if params.replace_config:
-        args.config_file_path = pathlib.Path(params.config_file_path)
+        args.config_file_path = pathlib.Path(__file__).parent / params.config_file_path
+
     param_dict = read_config(args.config_file_path)
     explicit_args = get_explicit_args(parser)
     args_dict = vars(args)
     for key in explicit_args:
         param_dict[key] = args_dict[key]
-    param_dict['log_path'] = param_dict['log_dir'].joinpath('sic4dvar.log')
+
+    if 'log_dir' in param_dict.keys() :
+        param_dict['log_path'] = param_dict['log_dir'].joinpath('sic4dvar.log')
+
+    if not param_dict['output_dir'].exists():
+        param_dict['output_dir'].mkdir(parents=True, exist_ok=True)
     append_to_principal_log(param_dict, 'Running SIC4DVAR low cost')
-    if param_dict["aws"] and "json_path" not in param_dict:
-        param_dict["json_path"] = pathlib.Path(param_dict["input_dir"],"reaches.json")
-        param_dict["sos_dir"] = param_dict["input_dir"].joinpath('sos')
-        param_dict["swot_dir"] = param_dict["input_dir"].joinpath('swot')
-        param_dict["sword_dir"] = param_dict["input_dir"].joinpath('sword')
-    elif param_dict["aws"]:
-        param_dict["json_path"] = pathlib.Path(param_dict["input_dir"], param_dict["json_path"])
-        param_dict["sos_dir"] = param_dict["input_dir"].joinpath('sos')
-        param_dict["swot_dir"] = param_dict["input_dir"].joinpath('swot')
-        param_dict["sword_dir"] = param_dict["input_dir"].joinpath('sword')
+    if param_dict['aws'] and 'json_path' not in param_dict:
+        param_dict['json_path'] = pathlib.Path(param_dict['input_dir'], 'reaches.json')
+        param_dict['sos_dir'] = param_dict['input_dir'].joinpath('sos')
+        param_dict['swot_dir'] = param_dict['input_dir'].joinpath('swot')
+        param_dict['sword_dir'] = param_dict['input_dir'].joinpath('sword')
+    elif param_dict['aws']:
+        param_dict['json_path'] = pathlib.Path(param_dict['input_dir'], param_dict['json_path'])
+        param_dict['sos_dir'] = param_dict['input_dir'].joinpath('sos')
+        param_dict['swot_dir'] = param_dict['input_dir'].joinpath('swot')
+        param_dict['sword_dir'] = param_dict['input_dir'].joinpath('sword')
     param_dict['run_type'] = get_run_type(param_dict['json_path'])
-    if param_dict['run_type'] == 'seq':
-        sic4dvar_seq_run(param_dict)
-    elif param_dict['run_type'] == 'set':
-        sic4dvar_set_run(param_dict)
+    append_to_principal_log(param_dict, f'A {param_dict['run_type']} is detected since json file')
+    if param_dict['run_type'] in ['seq', 'set']:
+        sic4dvar_run(param_dict)
     else:
         append_to_principal_log(param_dict, f'Unknown run type {param_dict['run_type']}')
         pass
 if __name__ == '__main__':
+    start = time.time()
     main()
+    end = time.time()
+    print('Elapsed time:', end - start, 'seconds')

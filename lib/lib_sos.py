@@ -18,6 +18,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
+
 import netCDF4 as nc
 import os
 from pathlib import Path
@@ -107,6 +108,7 @@ class SOS:
 
 def get_station_q_and_qt(sos_dataset, reach_id):
     out_sos_q, out_sos_date = ([], [])
+    sos_qt = []
     continent_code = int(reach_id // 10000000000.0)
     station_names = continent_to_station[code_to_continent[continent_code]]
     sos_dataset_namegroup = list(sos_dataset.groups.keys())
@@ -124,7 +126,12 @@ def get_station_q_and_qt(sos_dataset, reach_id):
                 out_sos_q = station_q[:].ravel()
                 sos_qt = station_qt[:].ravel()
             out_sos_date = daynum_to_date(sos_qt, '0001-01-01')
-    return (out_sos_q, out_sos_date)
+            break
+        else:
+            out_sos_q = np.ma.masked_values(np.array([]), value=-9999.0)
+            out_sos_date = np.ma.masked_values(np.array([]), value=-9999.0)
+            sos_qt = np.ma.masked_values(np.array([]), value=-9999.0)
+    return (out_sos_q, out_sos_date, sos_qt)
 
 def main():
     sos_dataset = nc.Dataset('/home/ccazals/Utils/SOS/v16d/unconstrained/eu_sword_v16d_SOS_priors.nc')

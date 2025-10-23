@@ -18,6 +18,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
+
 import scipy.optimize as sciop
 import inspect
 from sic4dvar_functions.sic4dvar_helper_functions import *

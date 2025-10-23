@@ -18,10 +18,12 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
+
 import netCDF4 as nc
 from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
+import numpy.ma as ma
 from lib.lib_verif import check_na
 
 def get_swot_dates(node_t):
@@ -84,20 +86,31 @@ def convert_to_YMD(string):
     return string[0:string.rfind(' ')]
 
 def daynum_to_date(day_num, reference_date):
-    day_num = day_num
-    time_delta = day_num * timedelta(days=1)
     reference_date = datetime.strptime(reference_date, '%Y-%m-%d')
-    new_datetime = reference_date + time_delta
-    new_datetime = [date.replace(microsecond=0, second=0, minute=0, hour=0) for date in new_datetime]
-    return new_datetime
+    if np.isscalar(day_num):
+        return (reference_date + timedelta(days=float(day_num))).replace(microsecond=0, second=0, minute=0, hour=0)
+    if isinstance(day_num, ma.MaskedArray):
+        dates = []
+        for d in day_num:
+            if ma.is_masked(d):
+                dates.append(None)
+            else:
+                dt = reference_date + timedelta(days=float(d))
+                dates.append(dt.replace(microsecond=0, second=0, minute=0, hour=0))
+        return dates
+    return [(reference_date + timedelta(days=float(d))).replace(microsecond=0, second=0, minute=0, hour=0) for d in day_num]
 
-def seconds_to_date(seconds, reference_date=None):
+def seconds_to_datetime(seconds, reference_date=None):
     time_delta = seconds * timedelta(seconds=1)
     if reference_date:
         reference_date = datetime.strptime(reference_date, '%Y-%m-%d')
     else:
         reference_date = datetime(2000, 1, 1, 0, 0, 0)
     new_datetime = reference_date + time_delta
+    return new_datetime
+
+def seconds_to_date(seconds, reference_date=None):
+    new_datetime = seconds_to_datetime(seconds, reference_date)
     new_datetime = new_datetime.replace(microsecond=0, second=0, minute=0, hour=0)
     return new_datetime
 

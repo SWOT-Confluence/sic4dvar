@@ -19,3 +19,4 @@ shapely>=2.0.5
 six==1.16.0
 tqdm>=4.66.5
 tzdata>=2024.1
+portalocker==3.2.0

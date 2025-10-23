@@ -114,15 +114,34 @@ def gnuplot_save_list(distance, times, elevation, width, location, zmin, spaces)
                     file.write('\n\n')
     file.close()
 
-def gnuplot_save_q(discharge, times, location):
+def gnuplot_save_q_pdf(values, location):
+    all_data = []
+    file = open(location, 'w')
+    for i in range(0, values.shape[0]):
+        for j in range(0, values[0].shape[0]):
+            file.write('{} {} {} \n'.format(values[i, j], i, j))
+        file.write('\n')
+    file.close()
+
+def gnuplot_save_q_station(discharge, dates, location):
     all_data = []
     file = open(location, 'w')
     x = discharge
-    t = np.around(times)
-    t = t - min(t)
+    t = dates
     j = 0
     for x1, t1 in zip(x, t):
-        file.write('{} {}\n'.format(t1, x1))
+        file.write('{} {}\n'.format(x1, t1))
+        j += 1
+    file.close()
+
+def gnuplot_save_q(discharge, dates, location):
+    all_data = []
+    file = open(location, 'w')
+    x = discharge
+    t = dates
+    j = 0
+    for x1, t1 in zip(x, t):
+        file.write('{} {}\n'.format(x1, t1))
         j += 1
     file.close()
 
@@ -233,7 +252,7 @@ def large_deviations_removal(node_x, z):
     return new_z
 
 def global_large_deviations_removal(node_x, z):
-    node_x = (node_x - node_x[0]) / 1000
+    node_x = abs(node_x - node_x[0]) / 1000
     new_z = deepcopy(z)
     a11 = 0.0
     a12 = 0.0
@@ -322,12 +341,110 @@ def global_large_deviations_removal(node_x, z):
                 new_z[index_valid[n], t] = c1 * node_x[index_valid[n]] + c2 - dist * (1.0 * c3) / abs(dist)
     return (new_z, c1, c2)
 
+def compute_mean_var_from_2D_array(test_swot_z_obs, reach_t):
+    z_mean = []
+    check_na_vector = np.vectorize(calc.check_na)
+    for n in range(0, test_swot_z_obs.shape[0]):
+        integrated_z_mean = 0.0
+        time_scaling = 0.0
+        for t in range(1, test_swot_z_obs.shape[1]):
+            if calc.check_na(test_swot_z_obs[n, t]) or calc.check_na(test_swot_z_obs[n, t - 1]):
+                integrated_z_mean += 0.0
+                time_scaling += 0.0
+            else:
+                integrated_z_mean += (test_swot_z_obs[n, t] + test_swot_z_obs[n, t - 1]) / 2 * (reach_t[t] - reach_t[t - 1])
+                time_scaling += reach_t[t] - reach_t[t - 1]
+        if time_scaling != 0.0:
+            integrated_z_mean = integrated_z_mean / time_scaling
+        else:
+            integrated_z_mean = -9999.0
+        z_mean.append(integrated_z_mean)
+    z_var = []
+    for n in range(0, test_swot_z_obs.shape[0]):
+        integrated_z_var = 0.0
+        time_scaling = 0.0
+        for t in range(1, test_swot_z_obs.shape[1]):
+            if calc.check_na(test_swot_z_obs[n, t]) or calc.check_na(test_swot_z_obs[n, t - 1]):
+                integrated_z_var += 0.0
+                time_scaling += 0.0
+            else:
+                s0 = (test_swot_z_obs[n, t] - z_mean[n]) ** 2
+                s1 = (test_swot_z_obs[n, t - 1] - z_mean[n]) ** 2
+                integrated_z_var += (s0 + s1) / 2 * (reach_t[t] - reach_t[t - 1])
+                time_scaling += reach_t[t] - reach_t[t - 1]
+        if time_scaling != 0.0:
+            integrated_z_var = np.sqrt(integrated_z_var / time_scaling)
+        else:
+            integrated_z_var = -9999.0
+        z_var.append(integrated_z_var)
+    return (np.array(z_mean), np.array(z_var))
+
+def compute_mean_var_from_2D_array_sum(test_swot_z_obs, reach_t):
+    z_mean = []
+    check_na_vector = np.vectorize(calc.check_na)
+    for n in range(0, test_swot_z_obs.shape[0]):
+        integrated_z_mean = 0.0
+        idx_sort = test_swot_z_obs[n, :].argsort()
+        sorted_array = test_swot_z_obs[n, :][idx_sort]
+        sorted_array_mask = check_na_vector(sorted_array)
+        sorted_array = sorted_array[~sorted_array_mask]
+        time_range = int(sorted_array.shape[0] / 3)
+        if time_range > 0:
+            for t in range(0, time_range):
+                if calc.check_na(test_swot_z_obs[n, t]):
+                    integrated_z_mean += 0.0
+                else:
+                    integrated_z_mean += test_swot_z_obs[n, t]
+            integrated_z_mean = integrated_z_mean / time_range
+        else:
+            integrated_z_mean = np.nan
+        z_mean.append(integrated_z_mean)
+    z_var = []
+    for n in range(0, test_swot_z_obs.shape[0]):
+        integrated_z_var = 0.0
+        idx_sort = test_swot_z_obs[n, :].argsort()
+        sorted_array = test_swot_z_obs[n, :][idx_sort]
+        sorted_array_mask = check_na_vector(sorted_array)
+        sorted_array = sorted_array[~sorted_array_mask]
+        time_range = int(sorted_array.shape[0] / 3)
+        if time_range > 0.0:
+            for t in range(0, time_range):
+                if calc.check_na(test_swot_z_obs[n, t]):
+                    integrated_z_var += 0.0
+                else:
+                    integrated_z_var += (test_swot_z_obs[n, t] - z_mean[n]) ** 2
+                integrated_z_var = np.sqrt(integrated_z_var / time_range)
+        else:
+            integrated_z_var = np.nan
+        z_var.append(integrated_z_var)
+    return (np.array(z_mean), np.array(z_var))
+
+def grad_variance(x):
+    deriv_x = []
+    for n in range(1, len(x)):
+        deriv_x.append((x[n] - x[n - 1]) / 200.0)
+    return np.array(deriv_x)
+
 def gnuplot_save_tables(x, y, z, location, spaces):
     all_data = []
     file = open(location, 'w')
     j = 0
     for x1, y1, z1 in zip(x, y, z):
         file.write('{} {} {}\n'.format(x1, y1, z1))
+        j += 1
+        if j == len(x):
+            if spaces <= 1:
+                file.write('\n')
+            if spaces >= 2:
+                file.write('\n\n')
+    file.close()
+
+def gnuplot_save_var(x, y, z, a, b, location, spaces):
+    all_data = []
+    file = open(location, 'w')
+    j = 0
+    for x1, y1, z1, a1, b1 in zip(x, y, z, a, b):
+        file.write('{} {} {} {} {}\n'.format(x1, y1, z1, a1, b1))
         j += 1
         if j == len(x):
             if spaces <= 1:
@@ -412,147 +529,266 @@ def write_to_log(file_path, string):
     with open(file_path, 'a') as file:
         file.write(string + '\n')
 
-def get_input_data(param_dict, _reach_dict):
-    swot_file = param_dict['swot_dir'].joinpath(f'{_reach_dict['reach_id']}_SWOT.nc')
-    swot_dict = {}
-    swot_dataset = []
-    sos_dataset = []
-    sword_dataset = []
-    swot_dict['reach_id'] = _reach_dict['reach_id']
-    flag_dict = {}
-    flag_dict['node'] = {}
-    flag_dict['reach'] = {}
-    sword_file = param_dict['sword_dir'].joinpath(_reach_dict['sword'])
-    if sword_file.exists():
-        sword_dataset = Dataset(sword_file)
-        index_node_ids = np.array(np.where(get_nc_variable_data(sword_dataset, 'nodes/reach_id') == int(_reach_dict['reach_id'])))[0]
-        sword_nodes_id = sword_dataset['nodes']['node_id'][index_node_ids]
-        sword_nodes_id_reordered_index, sword_nodes_id_reordered = reorder_ids_with_indices(sword_nodes_id)
-        index_node_ids = index_node_ids[sword_nodes_id_reordered_index]
-        if not params.opt_sword_boost:
-            swot_dict['node_length'] = get_nc_variable_data(sword_dataset, 'nodes/node_length')[index_node_ids]
-            swot_dict['dist_out'] = get_nc_variable_data(sword_dataset, 'nodes/dist_out')[index_node_ids]
-            if params.pankaj_test:
-                middle = round(len(index_node_ids) / 2)
-                node = index_node_ids[middle]
-                swot_dict['dist_out'] = get_nc_variable_data(sword_dataset, 'nodes/dist_out')[node]
-                swot_dict['node_length'] = get_nc_variable_data(sword_dataset, 'nodes/node_length')[node]
-        elif params.opt_sword_boost:
-            ref_index_rch = np.array(np.where(get_nc_variable_data(sword_dataset, 'reaches/reach_id') == int(_reach_dict['reach_id'])))[0]
-            index_rch_node = np.load('index_rch_node.npy')
-            i1 = int(index_rch_node[ref_index_rch, 0])
-            i2 = int(index_rch_node[ref_index_rch, 1])
-            list_nodes = np.arange(i1, i2 + 1)
-            swot_dict['node_length'] = get_nc_variable_data(sword_dataset, 'nodes/node_length')[list_nodes]
-            swot_dict['dist_out'] = get_nc_variable_data(sword_dataset, 'nodes/dist_out')[list_nodes]
-        swot_dict['node_w_mean'] = get_nc_variable_data(sword_dataset, 'nodes/width')[index_node_ids]
-        index_reach_sword = np.array(np.where(get_nc_variable_data(sword_dataset, 'reaches/reach_id') == int(swot_dict['reach_id'])))[0]
-        swot_dict['reach_w_mean'] = get_nc_variable_data(sword_dataset, 'reaches/width')[index_reach_sword]
-        swot_dict['reach_slope'] = get_nc_variable_data(sword_dataset, 'reaches/slope')[index_reach_sword]
-        swot_dict['reach_length'] = get_nc_variable_data(sword_dataset, 'reaches/reach_length')[index_reach_sword]
-        flag_dict['reach']['reach_width_min'] = swot_dict['reach_w_mean']
-        flag_dict['reach']['reach_slope_min'] = swot_dict['reach_slope']
-        flag_dict['reach']['reach_length_min'] = swot_dict['reach_length']
-        swot_dict['facc'] = get_nc_variable_data(sword_dataset, 'reaches/facc')[index_reach_sword]
-        sword_dataset.close()
+def get_sos_data(sos_file, reach_id, reach_t, param_dict):
+    sos_dict = {}
+    sos_dataset = Dataset(sos_file)
+    if params.auto_spread_for_runs and (not params.use_dynamic_spread):
+        if 'unconstrained' in sos_dataset.getncattr('run_type'):
+            params.shape03 = 10.0
+        elif sos_dataset.getncattr('run_type') == 'constrained':
+            params.shape03 = 30.0
+    sos_rids = get_nc_variable_data(sos_dataset, 'reaches/reach_id')
+    index = np.where(sos_rids == reach_id)
+    sos_dict['q_monthly_mean'] = get_nc_variable_data(sos_dataset, 'model/monthly_q')[index, :][0][0]
+    sos_dict['reach_qwbm'] = get_nc_variable_data(sos_dataset, 'model/mean_q')[index]
+    sos_dict['quantiles'] = sos_dataset['model']['flow_duration_q'][index[0], :][0]
+    sos_dict['quant_mean'], sos_dict['quant_var'] = calc.compute_mean_discharge_from_SoS_quantiles(sos_dict['quantiles'])
+    if sos_dict['quantiles'].mask.all():
+        params.use_mean_for_bounds = True
     else:
-        logging.error(call_error_message(504).format(reach_id=_reach_dict['reach_id'], sword_file=sword_file))
+        params.use_mean_for_bounds = False
+    if params.qsdev_activate or params.q_mean_computed:
+        masked_data = np.ma.masked_values(np.array([float(sos_dict['quant_mean'])]), value=-9999.0)
+        sos_dict['reach_qwbm'] = deepcopy(masked_data)
+    if params.qsdev_activate:
+        if params.qsdev_option == 0:
+            masked_data2 = np.ma.masked_values(np.array([float(sos_dict['quant_var'])]), value=-9999.0)
+        elif params.qsdev_option == 1:
+            masked_data2 = np.ma.masked_values(np.array([float(sos_dict['quant_var'] / sos_dict['quant_mean'])]), value=-9999.0)
+        sos_dict['reach_qsdev'] = masked_data2
+    elif not params.qsdev_activate:
+        sos_dict['reach_qsdev'] = 0.0
+    if calc.check_na(sos_dict['reach_qwbm']):
+        pass
+    if param_dict['override_q_prior']:
+        masked_data = np.ma.masked_values(np.array([float(param_dict['q_prior_value'])]), value=-9999.0)
+        sos_dict['reach_qwbm'] = masked_data
+    sos_reach_id = get_nc_variable_data(sos_dataset, 'reaches/reach_id')
+    index_reach_sos = np.array(np.where(sos_reach_id == int(reach_id)))[0]
+    sos_dict['station_q'], sos_dict['station_date'], sos_dict['station_qt'] = get_station_q_and_qt(sos_dataset, reach_id)
+    if np.array(sos_dict['station_q']).size == 0:
+        logging.warning(call_error_message(501).format(reach_id=reach_id))
+        masked_data = np.ma.masked_values(np.array([np.nan]), value=-9999.0)
+        sos_dict['q_mean_station'] = masked_data
+        masked_data2 = np.ma.masked_values(np.array([np.nan]), value=-9999.0)
+        sos_dict['q_std_station'] = masked_data2
+    if np.array(sos_dict['station_q']).size > 0 and sos_dict['station_q'].mask.all() != True:
+        q_mean, q_std, filtered_station_df = use_stations_for_q_prior(reach_t, sos_dict['station_q'], sos_dict['station_date'], reach_id, sos_dict['station_qt'], 'station')
+        sos_dict['station_qt_2000'] = filtered_station_df['station_qt_2000']
+        masked_data = np.ma.masked_values(np.array([q_mean]), value=-9999.0)
+        sos_dict['q_mean_station'] = masked_data
+        masked_data2 = np.ma.masked_values(np.array([float(q_std)]), value=-9999.0)
+        sos_dict['q_std_station'] = masked_data2
+        if param_dict['q_prior_from_stations']:
+            sos_dict['reach_qwbm'] = deepcopy(sos_dict['q_mean_station'])
+            if params.qsdev_activate:
+                if params.qsdev_option == 0:
+                    masked_data2 = np.ma.masked_values(np.array([float(sos_dict['q_std_station'])]), value=-9999.0)
+                elif params.qsdev_option == 1:
+                    masked_data2 = np.ma.masked_values(np.array([float(sos_dict['q_std_station'] / sos_dict['q_mean_station'])]), value=-9999.0)
+                sos_dict['reach_qsdev'] = masked_data2
+            if q_mean <= 1.0:
+                logging.warning(call_error_message(506))
+                return (0, {})
+    if params.q_prior_from_ML:
+        logging.info('Using ML priors.')
+        ml_ds = Dataset(params.ML_time_series_path)
+        index_reach = np.where(reach_id == ml_ds['reach_id'][:])[0]
+        if np.array(index_reach).size > 0.0:
+            flow = ml_ds['flow'][index_reach, :][0]
+            time = ml_ds['time'][index_reach, :][0]
+            flow = np.ma.array(flow)
+            time = np.ma.array(time)
+            mask = ~flow.mask & ~time.mask
+            valid_flow = flow[mask]
+            valid_times = time[mask]
+            if valid_flow.size > 0:
+                if valid_flow.ndim > 1:
+                    valid_flow = valid_flow[0]
+            if valid_times.size > 0:
+                if valid_times.ndim > 1:
+                    valid_times = valid_times[0]
+            sorted_indices = np.argsort(valid_times)
+            valid_times = valid_times[sorted_indices]
+            valid_flow = valid_flow[sorted_indices]
+            valid_times_days = valid_times / 86400
+            if valid_flow.size > 0 and valid_flow.mask.all() != True:
+                from lib.lib_dates import daynum_to_date
+                out_ml_date = daynum_to_date(valid_times_days, '2000-01-01')
+                masked_station_reach_t = np.ma.masked_values(np.array([sos_dict['station_qt_2000'] * 86400])[0], value=-9999.0)
+                q_mean, q_std, filtered_ml_df = use_stations_for_q_prior(reach_t, valid_flow, out_ml_date, reach_id, valid_times_days, 'ML')
+                sos_dict['ML_qt_2000'] = filtered_ml_df['ML_qt_2000']
+                masked_data = np.ma.masked_values(np.array([q_mean]), value=-9999.0)
+                sos_dict['q_mean_ML'] = masked_data
+                masked_data2 = np.ma.masked_values(np.array([float(q_std)]), value=-9999.0)
+                sos_dict['q_std_ML'] = masked_data2
+                sos_dict['reach_qwbm'] = deepcopy(sos_dict['q_mean_ML'])
+                if params.qsdev_activate:
+                    if params.qsdev_option == 0:
+                        masked_data2 = np.ma.masked_values(np.array([float(sos_dict['q_std_ML'])]), value=-9999.0)
+                    elif params.qsdev_option == 1:
+                        masked_data2 = np.ma.masked_values(np.array([float(sos_dict['q_std_ML'] / sos_dict['q_mean_ML'])]), value=-9999.0)
+                    sos_dict['reach_qsdev'] = masked_data2
+                if q_mean <= 1.0:
+                    logging.warning(call_error_message(506))
+                    return (0, {})
+        else:
+            pass
+            logging.warning('Reach has no ML priors.')
+            if params.ML_priors_force_quit:
+                logging.warning('ML force quitting.')
+                return (0, {})
+    if sos_dict['reach_qwbm'] <= 1 and (not params.activate_facc):
+        logging.warning(call_error_message(507))
+        return (0, {})
+    sos_dataset.close()
+    return sos_dict
+
+def get_sword_data(sword_file, reach_id):
+    sword_dict = {}
+    sword_flag_dict = {}
+    sword_dataset = Dataset(sword_file)
+    index_node_ids = np.array(np.where(get_nc_variable_data(sword_dataset, 'nodes/reach_id') == int(reach_id)))[0]
+    sword_nodes_id = sword_dataset['nodes']['node_id'][index_node_ids]
+    sword_nodes_id_reordered_index, sword_nodes_id_reordered = reorder_ids_with_indices(sword_nodes_id)
+    index_node_ids = index_node_ids[sword_nodes_id_reordered_index]
+    if not params.opt_sword_boost:
+        sword_dict['node_length'] = get_nc_variable_data(sword_dataset, 'nodes/node_length')[index_node_ids]
+        sword_dict['dist_out'] = get_nc_variable_data(sword_dataset, 'nodes/dist_out')[index_node_ids]
+        if params.pankaj_test:
+            middle = round(len(index_node_ids) / 2)
+            node = index_node_ids[middle]
+            sword_dict['dist_out'] = get_nc_variable_data(sword_dataset, 'nodes/dist_out')[node]
+            sword_dict['node_length'] = get_nc_variable_data(sword_dataset, 'nodes/node_length')[node]
+    elif params.opt_sword_boost:
+        ref_index_rch = np.array(np.where(get_nc_variable_data(sword_dataset, 'reaches/reach_id') == int(reach_id)))[0]
+        index_rch_node = np.load('index_rch_node.npy')
+        i1 = int(index_rch_node[ref_index_rch, 0])
+        i2 = int(index_rch_node[ref_index_rch, 1])
+        list_nodes = np.arange(i1, i2 + 1)
+        sword_dict['node_length'] = get_nc_variable_data(sword_dataset, 'nodes/node_length')[list_nodes]
+        sword_dict['dist_out'] = get_nc_variable_data(sword_dataset, 'nodes/dist_out')[list_nodes]
+    sword_dict['node_w_mean'] = get_nc_variable_data(sword_dataset, 'nodes/width')[index_node_ids]
+    index_reach_sword = np.array(np.where(get_nc_variable_data(sword_dataset, 'reaches/reach_id') == int(reach_id)))[0]
+    sword_dict['reach_w_mean'] = get_nc_variable_data(sword_dataset, 'reaches/width')[index_reach_sword]
+    sword_dict['reach_slope'] = get_nc_variable_data(sword_dataset, 'reaches/slope')[index_reach_sword]
+    sword_dict['reach_length'] = get_nc_variable_data(sword_dataset, 'reaches/reach_length')[index_reach_sword]
+    sword_flag_dict = {'reach': {'reach_width_min': sword_dict['reach_w_mean'], 'reach_slope_min': sword_dict['reach_slope'], 'reach_length_min': sword_dict['reach_length']}, 'node': {'reach_length_min': sword_dict['node_w_mean']}}
+    sword_dict['facc'] = get_nc_variable_data(sword_dataset, 'reaches/facc')[index_reach_sword]
+    sword_dataset.close()
+    return (sword_dict, sword_flag_dict)
+
+def get_swot_data(swot_file, param_dict):
+    swot_dict = {}
+    flag_dict = {}
+    swot_dataset = Dataset(swot_file)
+    swot_node_ids = get_nc_variable_data(swot_dataset, 'node/node_id')
+    if np.array(swot_node_ids).size == 0:
+        logging.error('SWOT file has no node_id field !')
+        return ({}, {})
+    swot_nodes_id_reordered_index, swot_nodes_id_reordered = reorder_ids_with_indices(swot_node_ids)
+    swot_node_ids = swot_node_ids[swot_nodes_id_reordered_index]
+    check_na_vector = np.vectorize(calc.check_na)
+    reach_param_flags = ['obs_frac_n', 'dark_frac', 'xovr_cal_q', 'reach_q_b', 'slope_r_u', 'partial_f', 'xtrk_dist', 'ice_clim_f']
+    flag_dict['reach'] = {}
+    for attribute in reach_param_flags:
+        if get_nc_variable_data(swot_dataset, f'reach/{attribute}').shape != (0,):
+            flag_dict['reach'][attribute] = get_nc_variable_data(swot_dataset, f'reach/{attribute}')
+    node_param_flags = ['xtrk_dist', 'dark_frac', 'node_dist', 'layovr_val', 'wse_u', 'width_u', 'flow_angle', 'node_q', 'node_q_b', 'xovr_cal_q', 'wse_r_u', 'n_good_pix']
+    flag_dict['node'] = {}
+    for attribute in node_param_flags:
+        if get_nc_variable_data(swot_dataset, f'node/{attribute}').shape != (0,):
+            flag_dict['node'][attribute] = get_nc_variable_data(swot_dataset, f'node/{attribute}')[swot_nodes_id_reordered_index]
+    flag_dict['nx'] = get_nc_variable_data(swot_dataset, 'node/wse').shape[0]
+    flag_dict['nt'] = get_nc_variable_data(swot_dataset, 'node/wse').shape[1]
+    logging.info(f'Loading file {swot_file} - nx : {flag_dict['nx']} nt {flag_dict['nt']}')
+    if hasattr(swot_dataset['reach/wse'], 'valid_min'):
+        swot_dict['valid_min_z'] = swot_dataset['reach/wse'].valid_min
+    else:
+        swot_dict['valid_min_z'] = params.valid_min_z
+    if hasattr(swot_dataset['reach/d_x_area'], 'valid_min'):
+        swot_dict['valid_min_dA'] = swot_dataset['reach/d_x_area'].valid_min
+    else:
+        swot_dict['valid_min_dA'] = params.valid_min_dA
+    swot_dict['reach_dA'] = get_nc_variable_data(swot_dataset, 'reach/d_x_area')
+    swot_dict['reach_s'] = get_nc_variable_data(swot_dataset, 'reach/slope2')
+    swot_dict['reach_w'] = get_nc_variable_data(swot_dataset, 'reach/width')
+    swot_dict['reach_z'] = get_nc_variable_data(swot_dataset, 'reach/wse')
+    swot_dict['reach_t'] = get_nc_variable_data(swot_dataset, 'reach/time')
+    swot_dict['node_w'] = get_nc_variable_data(swot_dataset, 'node/width')[swot_nodes_id_reordered_index]
+    swot_dict['node_z'] = get_nc_variable_data(swot_dataset, 'node/wse')[swot_nodes_id_reordered_index]
+    swot_dict['node_dA'] = np.ones(swot_dict['node_z'].shape) * swot_dict['reach_dA']
+    swot_dict['node_s'] = np.ones(swot_dict['node_z'].shape) * swot_dict['reach_s']
+    swot_dict['node_t'] = get_nc_variable_data(swot_dataset, 'node/time')[swot_nodes_id_reordered_index]
+    swot_dict['node_id'] = swot_nodes_id_reordered
+    if swot_dict['reach_s'].mask.all():
+        if not swot_dict['node_s'][0].mask.all():
+            swot_dict['reach_s'] = swot_dict['node_s'][0]
+    swot_dataset.close()
+    return (swot_dict, flag_dict)
+
+def get_input_data(param_dict, reach_dict):
+    sword_file = param_dict['sword_dir'].joinpath(reach_dict['sword'])
+    swot_file = param_dict['swot_dir'].joinpath(reach_dict['swot'])
+    sos_file = param_dict['sos_dir'].joinpath(reach_dict['sos'])
+    data_dict = {'reach_id': reach_dict['reach_id']}
+    flag_dict = {'node': {}, 'reach': {}}
+    if sword_file.exists():
+        sword_dict, sword_flag_dict = get_sword_data(sword_file, reach_dict['reach_id'])
+        flag_dict['node'].update(sword_flag_dict['node'])
+        flag_dict['reach'].update(sword_flag_dict['reach'])
+        data_dict.update(sword_dict)
+    else:
+        logging.error(call_error_message(504).format(reach_id=reach_dict['reach_id'], sword_file=sword_file))
         return (0, {})
     if swot_file.exists():
-        swot_dataset = Dataset(swot_file)
-        swot_node_ids = swot_dataset['node']['node_id'][:]
-        swot_nodes_id_reordered_index, swot_nodes_id_reordered = reorder_ids_with_indices(swot_node_ids)
-        swot_node_ids = swot_node_ids[swot_nodes_id_reordered_index]
-        check_na_vector = np.vectorize(calc.check_na)
-        flag_dict['reach']['obs_frac_n'] = get_nc_variable_data(swot_dataset, 'reach/obs_frac_n')
-        flag_dict['reach']['reach_q_b'] = get_nc_variable_data(swot_dataset, 'reach/reach_q_b')
-        flag_dict['reach']['slope_r_u'] = get_nc_variable_data(swot_dataset, 'reach/slope_r_u')
-        flag_dict['reach']['partial_f'] = get_nc_variable_data(swot_dataset, 'reach/partial_f')
-        node_param_flags = ['ice_clim_f', 'xtrk_dist', 'dark_frac', 'node_dist', 'layovr_val', 'wse_u', 'width_u', 'flow_angle', 'node_q', 'node_q_b', 'xovr_cal_q', 'wse_r_u']
-        for attribute in node_param_flags:
-            if get_nc_variable_data(swot_dataset, f'node/{attribute}').shape != (0,):
-                flag_dict['node'][attribute] = get_nc_variable_data(swot_dataset, f'node/{attribute}')[swot_nodes_id_reordered_index]
-        flag_dict['nx'] = get_nc_variable_data(swot_dataset, 'node/wse').shape[0]
-        flag_dict['nt'] = get_nc_variable_data(swot_dataset, 'node/wse').shape[1]
-        logging.info(f'Loading file {swot_file} - nx : {flag_dict['nx']} nt {flag_dict['nt']}')
-        if hasattr(swot_dataset['reach/wse'], 'valid_min'):
-            swot_dict['valid_min_z'] = swot_dataset['reach/wse'].valid_min
-        else:
-            swot_dict['valid_min_z'] = params.valid_min_z
-        if hasattr(swot_dataset['reach/d_x_area'], 'valid_min'):
-            swot_dict['valid_min_dA'] = swot_dataset['reach/d_x_area'].valid_min
-        else:
-            swot_dict['valid_min_dA'] = params.valid_min_dA
-        swot_dict['reach_dA'] = get_nc_variable_data(swot_dataset, 'reach/d_x_area')
-        swot_dict['reach_s'] = get_nc_variable_data(swot_dataset, 'reach/slope2')
-        swot_dict['reach_w'] = get_nc_variable_data(swot_dataset, 'reach/width')
-        swot_dict['reach_z'] = get_nc_variable_data(swot_dataset, 'reach/wse')
-        swot_dict['reach_t'] = get_nc_variable_data(swot_dataset, 'reach/time')
-        swot_dict['node_w'] = get_nc_variable_data(swot_dataset, 'node/width')[swot_nodes_id_reordered_index]
-        swot_dict['node_z'] = get_nc_variable_data(swot_dataset, 'node/wse')[swot_nodes_id_reordered_index]
-        swot_dict['node_dA'] = get_nc_variable_data(swot_dataset, 'node/d_x_area')[swot_nodes_id_reordered_index]
-        swot_dict['node_s'] = get_nc_variable_data(swot_dataset, 'node/slope2')[swot_nodes_id_reordered_index]
-        swot_dict['node_t'] = get_nc_variable_data(swot_dataset, 'node/time')[swot_nodes_id_reordered_index]
+        swot_dict, flag_dict = get_swot_data(swot_file, param_dict)
+        if 'node' in flag_dict:
+            flag_dict['node'].update(sword_flag_dict['node'])
+        if 'reach' in flag_dict:
+            flag_dict['reach'].update(sword_flag_dict['reach'])
+        data_dict.update(swot_dict)
     else:
-        logging.warning(call_error_message(505).format(reach_id=_reach_dict['reach_id'], swot_file=swot_file))
+        logging.warning(call_error_message(505).format(reach_id=reach_dict['reach_id'], swot_file=swot_file))
         if param_dict['run_type'] == 'seq':
             logging.error(call_error_message(103))
             return (0, {})
         elif param_dict['run_type'] == 'set':
             pass
-    sos_file = param_dict['sos_dir'].joinpath(_reach_dict['sos'])
     if sos_file.exists():
-        sos_dataset = Dataset(sos_file)
-        sos_rids = get_nc_variable_data(sos_dataset, 'reaches/reach_id')
-        index = np.where(sos_rids == _reach_dict['reach_id'])
-        swot_dict['q_monthly_mean'] = get_nc_variable_data(sos_dataset, 'model/monthly_q')[index, :][0][0]
-        swot_dict['reach_qwbm'] = get_nc_variable_data(sos_dataset, 'model/mean_q')[index]
-        quant_mean, quant_var = calc.compute_mean_discharge_from_SoS_quantiles(sos_dataset['model']['flow_duration_q'][index[0], :][0])
-        if params.qsdev_activate:
-            masked_data = np.ma.masked_values(np.array([float(quant_mean)]), value=-9999.0)
-            swot_dict['reach_qwbm'] = masked_data
-        if params.qsdev_activate:
-            if params.qsdev_option == 0:
-                masked_data2 = np.ma.masked_values(np.array([float(quant_var)]), value=-9999.0)
-            elif params.qsdev_option == 1:
-                masked_data2 = np.ma.masked_values(np.array([float(quant_var / quant_mean)]), value=-9999.0)
-            swot_dict['reach_qsdev'] = masked_data2
-        elif not params.qsdev_activate:
-            swot_dict['reach_qsdev'] = 0.0
-        if calc.check_na(swot_dict['reach_qwbm']):
-            pass
-        if param_dict['override_q_prior']:
-            masked_data = np.ma.masked_values(np.array([float(param_dict['q_prior_value'])]), value=-9999.0)
-            swot_dict['reach_qwbm'] = masked_data
-        sos_reach_id = get_nc_variable_data(sos_dataset, 'reaches/reach_id')
-        index_reach_sos = np.array(np.where(sos_reach_id == int(swot_dict['reach_id'])))[0]
-        swot_dict['station_q'], swot_dict['station_date'] = get_station_q_and_qt(sos_dataset, _reach_dict['reach_id'])
-        if param_dict['q_prior_from_stations']:
-            if np.array(swot_dict['station_q']).size == 0:
-                logging.warning(call_error_message(501).format(reach_id=_reach_dict['reach_id']))
-                return (0, {})
-            q_mean, q_std = use_stations_for_q_prior(swot_dict['reach_t'], swot_dict['station_q'], swot_dict['station_date'])
-            masked_data = np.ma.masked_values(np.array([q_mean]), value=-9999.0)
-            swot_dict['reach_qwbm'] = masked_data
-            if params.qsdev_activate:
-                if params.qsdev_option == 0:
-                    masked_data2 = np.ma.masked_values(np.array([float(q_std)]), value=-9999.0)
-                elif params.qsdev_option == 1:
-                    masked_data2 = np.ma.masked_values(np.array([float(q_std / q_mean)]), value=-9999.0)
-                swot_dict['reach_qsdev'] = masked_data2
-            if q_mean <= 1.0:
-                logging.warning(call_error_message(506))
-                return (0, {})
-        sos_dataset.close()
+        if 'reach_t' in data_dict:
+            sos_dict_tmp = get_sos_data(sos_file, reach_dict['reach_id'], data_dict['reach_t'], param_dict)
+        else:
+            sos_dict_tmp = (0, {})
+        if sos_dict_tmp != (0, {}):
+            sos_dict = deepcopy(sos_dict_tmp)
+        elif params.use_fallback_sos and sos_dict_tmp['station_q'].size == 0:
+            sos_file2 = Path(params.fallback_sos_dir).joinpath(reach_dict['sos'])
+            sos_dict_tmp = get_sos_data(sos_file2, reach_dict['reach_id'], param_dict)
+            if sos_dict_tmp != (0, {}) and sos_dict_tmp['station_q'].size > 0:
+                swot_dict = deepcopy(sos_dict_tmp)
+                logging.info(f'station was replaced: {sos_dict_tmp['station_q']}')
+        else:
+            logging.warning('use_fallback_sos set to False, not replacing')
+            return (0, {})
+        data_dict.update(sos_dict)
     else:
-        logging.error(call_error_message(104).format(reach_id=_reach_dict['reach_id'], sos_file=sos_file))
+        logging.error(call_error_message(104).format(reach_id=reach_dict['reach_id'], sos_file=sos_file))
         return (0, {})
-    if swot_file.exists():
-        swot_dataset.close()
-    return (swot_dict, flag_dict)
+    return (data_dict, flag_dict)
+
+def change_info_for_bathy(matrix, max_row_size, node_list, observed_rows):
+        n_total = len(node_list)
+        example_len = max_row_size
+        filled_data = [np.full(example_len, np.nan) for _ in range(n_total)]
+        for i, obs_idx in enumerate(observed_rows):
+            if obs_idx < len(filled_data):
+                filled_data[obs_idx] = matrix[i]
+        return filled_data[::-1]
 
 def write_output(output_dir, param_dict, _reach_id, _output, reach_number=0, folder_name='', dim_t=0, algo5_results={}, bb='9999.0', reliability=''):
     run_flag = True
+    
     if len(_output) <= 0:
         run_flag = False
     if run_flag:
@@ -621,17 +857,17 @@ def write_output(output_dir, param_dict, _reach_id, _output, reach_number=0, fol
                 nc_dict['n'].assignValue(np.nan)
     if param_dict['run_type'] == 'set':
         if reach_number < 0:
-            a0.assignValue(np.nan)
-            n.assignValue(np.nan)
+            nc_dict['A0'].assignValue(np.nan)
+            nc_dict['n'].assignValue(np.nan)
         else:
             if np.array(_output['node_a0']).size > 0:
-                a0.assignValue(_output['node_a0'][reach_number])
+                nc_dict['A0'].assignValue(_output['node_a0'][reach_number])
             else:
-                a0.assignValue(np.nan)
+                nc_dict['A0'].assignValue(np.nan)
             if np.array(_output['node_n']).size > 0:
-                n.assignValue(_output['node_n'][reach_number])
+                nc_dict['n'].assignValue(_output['node_n'][reach_number])
             else:
-                n.assignValue(np.nan)
+                nc_dict['n'].assignValue(np.nan)
     q_algo5 = out_nc.createVariable('Q_mm', 'f8', ('nt',), fill_value=fill_value)
     if param_dict['run_type'] == 'seq':
         q_algo5[:] = _output['q_algo5']
@@ -644,16 +880,26 @@ def write_output(output_dir, param_dict, _reach_id, _output, reach_number=0, fol
             q_algo5[:] = null_a5
     q_algo31 = out_nc.createVariable('Q_da', 'f8', ('nt',), fill_value=fill_value)
     q_algo31[:] = _output['q_algo31']
+
     if 'width' in _output:
         max_length = max((len(arr) for arr in _output['width']))
-        nodes = out_nc.createDimension('nodes', len(_output['width']))
+        #nodes = out_nc.createDimension('nodes', len(_output['width']))
     else:
         max_length = max(_output['time_steps']) + 1
+        #nodes = out_nc.createDimension('nodes', len(_output['time_steps']))
+
+    if 'width' in _output:
+        _output["width"] = change_info_for_bathy(_output["width"], max_length, _output['node_id'], _output['observed_nodes'])
+        _output["elevation"] = change_info_for_bathy(_output["elevation"], max_length, _output['node_id'], _output['observed_nodes'])
+        nodes = out_nc.createDimension('nodes', len(_output['width']))   
+    else:
         nodes = out_nc.createDimension('nodes', len(_output['time_steps']))
+
     nb_pts = out_nc.createDimension('nb_pts', max_length)
     width = out_nc.createVariable('width', 'f8', ('nodes', 'nb_pts'), fill_value=fill_value)
     elevation = out_nc.createVariable('elevation', 'f8', ('nodes', 'nb_pts'), fill_value=fill_value)
     q_u = out_nc.createVariable('q_u', 'f8', ('nt',), fill_value=fill_value)
+
     if 'width' in _output:
         for i in range(0, len(_output['width'])):
             width[i] = np.pad(_output['width'][i], (0, max_length - len(_output['width'][i])))
@@ -662,6 +908,7 @@ def write_output(output_dir, param_dict, _reach_id, _output, reach_number=0, fol
         for i in range(0, len(_output['q_algo31'])):
             width[i] = np.pad(_output['q_algo31'][i], (0, max_length - 0))
             elevation[i] = np.pad(_output['q_algo31'][i], (0, max_length - 0))
+
     q_u[:] = np.ones(len(nt[:])) * fill_value
     logging.info('q_u:%s' % str(q_u[:]))
     logging.info('q_algo31:%s' % str(q_algo31[:]))
@@ -672,6 +919,8 @@ def write_output(output_dir, param_dict, _reach_id, _output, reach_number=0, fol
         logging.info(f'{key}=%s' % str(nc_dict[key][:]))
     logging.info('times=%s' % str(times[:]))
     logging.info('bb:%s' % str(bb_out[:]))
+    logging.info('width shp=%s' % str(width.shape))
+    logging.info('elev shp=%s' % str(elevation.shape))
     if param_dict['gnuplot_saving']:
         reach_id = str(_reach_id)
         output_dir = output_dir.joinpath('gnuplot_data', reach_id)
@@ -711,57 +960,6 @@ def read_bathymetry(bathymetry_path, dist):
                         pass
     return (width, wse, indexes)
 
-def tmp_filter_function(node_z0_array, node_w0_array, q_min_n_nodes_param: int=1, q_min_n_times_param: int=1, q_min_per_nodes_param: float=0.0, q_min_per_times_param: float=0.0) -> tuple:
-    Proceed = True
-    if node_z0_array.shape != node_w0_array.shape:
-        raise AssertionError('arrays should have the same shape')
-    total_n_nodes, total_n_times = node_z0_array.shape
-    node_z_array = masked_array_to_nan_array(copy.deepcopy(node_z0_array))
-    node_w_array = masked_array_to_nan_array(copy.deepcopy(node_w0_array))
-    node_w_array = np.where(node_w_array <= 0, np.nan, node_w_array)
-    if np.all(np.isnan(node_z_array)):
-        Proceed = False
-        missing_indexes = [i for i in range(total_n_times)]
-        return (Proceed, [], [], missing_indexes)
-    valid_cs_node_ids = (np.count_nonzero(np.isfinite(node_w_array), axis=1) > 2).nonzero()[0]
-    if valid_cs_node_ids.size == 0:
-        Proceed = False
-        missing_indexes = [i for i in range(total_n_times)]
-        return (Proceed, [], [], missing_indexes)
-    invalid_cs_node_ids = [i_ for i_ in range(total_n_nodes) if i_ not in valid_cs_node_ids]
-    node_w_array[invalid_cs_node_ids, :] = np.nan
-    nan_mask_array = get_mask_nan_across_arrays(node_z_array, node_w_array)
-    if np.all(nan_mask_array):
-        Proceed = False
-        missing_indexes = [i for i in range(total_n_times)]
-        return (Proceed, [], [], missing_indexes)
-    node_z_array[nan_mask_array] = np.nan
-    node_z_array.shape = (total_n_nodes, total_n_times)
-    df = pd.DataFrame(index=range(total_n_nodes), columns=range(total_n_times), data=node_z_array)
-    original_shape = df.shape
-    df = df.dropna(axis='columns', how='all')
-    df = df.dropna(axis='rows', how='all')
-    df = df.dropna(axis='columns', thresh=q_min_n_times_param)
-    if total_n_times > 10:
-        pd_thr = int(q_min_per_times_param / 100 * total_n_times)
-        df = df.dropna(axis='columns', thresh=pd_thr)
-    df = df.dropna(axis='rows', thresh=q_min_n_nodes_param)
-    if total_n_nodes > 10:
-        pd_thr = int(q_min_per_nodes_param / 100 * total_n_nodes)
-        df = df.dropna(axis='rows', thresh=pd_thr)
-    df = df.dropna(axis='columns', how='any')
-    df = df.dropna(axis='rows', how='any')
-    if df.empty:
-        Proceed = False
-        missing_indexes = [i for i in range(total_n_times)]
-        return (Proceed, [], [], missing_indexes)
-    val_node_index_array, val_time_index_array = (df.index.to_numpy(), df.columns.to_numpy())
-    missing_indexes = []
-    for i in range(original_shape[1]):
-        if i not in val_time_index_array:
-            missing_indexes.append(i)
-    return (Proceed, val_node_index_array, val_time_index_array, missing_indexes)
-
 def sword_table(_input_dir, _reach_dict):
     sword_file = _input_dir.joinpath('sword', f'{_reach_dict['sword']}')
     sword_file_exists = os.path.isfile(sword_file)
@@ -772,6 +970,7 @@ def sword_table(_input_dir, _reach_dict):
         nb_rch = sword_dataset['reaches/reach_id'][:].size
         id_nod_ctl = sword_dataset['nodes/cl_ids'][:]
         id_rch_ctl = sword_dataset['reaches/cl_ids'][:]
+        sword_dataset.close()
     min_ctr_id = np.min(id_ctl)
     max_ctr_id = np.max(id_ctl)
     nbr_ctr_id = max_ctr_id - min_ctr_id + 1
@@ -937,9 +1136,19 @@ def correlation_nodes(node_z, ref_node, reach_id):
     indicators_node_df.to_csv(Path('/home/kabey/Bureau/worksync/Pankaj_Ganga/output/nodes_corr_z' + '.csv'), index=True, sep=';')
     print(bug2)
 
-def use_stations_for_q_prior(reach_t, station_q, station_qt):
-    option = 1
-    station_df = pd.DataFrame({'station_date': station_qt, 'station_q': station_q})
+def use_stations_for_q_prior(reach_t, station_q, station_qt, reach_id=[], station_qt2=[], option='station'):
+    option2 = 1
+    station_df = pd.DataFrame({'station_date': station_qt, 'station_q': station_q, 'station_qt': station_qt2})
+    if option == 'station':
+        epoch_0001 = datetime(1, 1, 1)
+        epoch_2000 = datetime(2000, 1, 1)
+        delta_days = (epoch_2000 - epoch_0001).days
+        string = 'station_qt_2000'
+        station_df['station_qt_2000_days'] = [v - delta_days for v in station_df['station_qt']]
+        station_df[string] = station_df['station_qt_2000_days'] * 86400
+    elif option == 'ML':
+        string = 'ML_qt_2000'
+        station_df[string] = station_df['station_qt']
     if reach_t.mask.any():
         sic4dvar_valid_idx = np.where(reach_t.mask == False)
         sic4dvar_t = reach_t[sic4dvar_valid_idx]
@@ -947,19 +1156,21 @@ def use_stations_for_q_prior(reach_t, station_q, station_qt):
         sic4dvar_t = reach_t[:]
     if np.array(sic4dvar_t).size < 1:
         logging.warning(call_error_message(503))
-        return (-9999.0, -9999.0)
+        return (-9999.0, -9999.0, -9999.0)
     dates_sic = []
     for date in sic4dvar_t:
         dates_sic.append(seconds_to_date_old(date))
     sic_df = pd.DataFrame({'sic4dvar_date': dates_sic})
     sic_df['date_only'] = pd.to_datetime(sic_df['sic4dvar_date'], format='%Y-%m-%d').dt.date
     station_df['date_only'] = pd.to_datetime(station_df['station_date'], format='%Y-%m-%d').dt.date
-    if option == 0:
+    result = []
+    if option2 == 0:
         data_df = pd.merge(station_df, sic_df, on='date_only', how='inner')
         if len(data_df['station_q']) < 1:
-            return (-9999.0, -9999.0)
+            return (-9999.0, -9999.0, -9999.0)
         q_mean = np.nanmean(data_df['station_q'])
-    elif option == 1:
+        result.append(q_mean)
+    if option2 == 1:
         if not params.force_specific_dates:
             start_date = sic_df['date_only'].min()
             end_date = sic_df['date_only'].max()
@@ -967,9 +1178,73 @@ def use_stations_for_q_prior(reach_t, station_q, station_qt):
             start_date = params.start_date.date()
             end_date = params.end_date.date()
         filtered_station_df = station_df[(station_df['date_only'] >= start_date) & (station_df['date_only'] <= end_date)]
-        if len(filtered_station_df['station_q']) < 1:
+        if len(filtered_station_df['station_q']) < 2:
             logging.warning(call_error_message(502))
-            return (-9999.0, -9999.0)
-        q_mean = np.nanmean(filtered_station_df['station_q'])
-        q_std = np.nanstd(filtered_station_df['station_q'])
-    return (q_mean, q_std)
+            return (-9999.0, -9999.0, -9999.0)
+        q_mean = 0
+        time_scaling = 0
+        q_std = 0.0
+        for t in range(1, len(filtered_station_df[string])):
+            q_mean += (filtered_station_df['station_q'].iloc[t] + filtered_station_df['station_q'].iloc[t - 1]) / 2 * (filtered_station_df[string].iloc[t] - filtered_station_df[string].iloc[t - 1])
+            time_scaling += np.array(filtered_station_df[string].iloc[t] - filtered_station_df[string].iloc[t - 1])
+        if time_scaling == 0:
+            raise ValueError(f'time_scaling is zero for REACH_ID {reach_id}')
+            print('REACH_ID:', reach_id, q_mean, time_scaling, option)
+        q_mean = q_mean / time_scaling
+        for t in range(1, len(filtered_station_df[string])):
+            q_std += ((filtered_station_df['station_q'].iloc[t] - q_mean) ** 2 + (filtered_station_df['station_q'].iloc[t - 1] - q_mean) ** 2) / 2 * (filtered_station_df[string].iloc[t] - filtered_station_df[string].iloc[t - 1])
+        q_std = (q_std / time_scaling) ** (1 / 2)
+        q_mean2 = np.nanmean(filtered_station_df['station_q'])
+        q_std2 = np.nanstd(filtered_station_df['station_q'])
+        result.append(q_mean)
+    return (q_mean, q_std, filtered_station_df)
+
+def define_spread(q_mean, q_std, use_mean_for_bounds, Qp=[], quantiles=[], relative_variance=2.0):
+    epsilon = 0.1
+    if use_mean_for_bounds:
+        QM1 = q_mean / Qp
+        QM2 = q_mean * Qp
+    else:
+        QM1 = quantiles[-1]
+        QM2 = quantiles[0]
+    mu = (q_mean - QM1) / (QM2 - QM1)
+    beta = mu * (1 - mu) / ((q_std / (QM2 - QM1)) ** 2 * (1 / (1 + relative_variance))) - 1
+    if beta < 1 / np.nanmin([mu, 1 - mu]) + epsilon:
+        beta = 1 / np.nanmin([mu, 1 - mu]) + epsilon
+    elif beta > 50:
+        beta = 50
+    return (beta, QM1, QM2)
+
+def gamma_table(beta):
+    beta_array = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 30, 35, 40, 45, 50, 55, 60]
+    gamma_array = [1.497, 1.371, 1.295, 1.244, 1.208, 1.181, 1.16, 1.144, 1.13, 1.119, 1.11, 1.102, 1.095, 1.089, 1.084, 1.079, 1.075, 1.07, 1.057, 1.047, 1.041, 1.035, 1.031, 1.028, 1.025, 1.023]
+    gamma = interp_pdf_tables(len(beta_array) - 1, beta, beta_array, gamma_array)
+    return gamma
+
+def build_output_q_masked_array(sic4dvar_dict, str):
+    if str == 'q_algo31' or str == 'time':
+        mask = np.ones(sic4dvar_dict['input_data']['node_z'].shape[1], dtype=bool)
+        arr = np.ones(sic4dvar_dict['input_data']['node_z'].shape[1]) * np.nan
+        if np.array(sic4dvar_dict['list_to_keep']).size > 0:
+            print(sic4dvar_dict['list_to_keep'])
+            if len(sic4dvar_dict['list_to_keep']) == len(sic4dvar_dict['output'][str]):
+                arr[sic4dvar_dict['list_to_keep']] = sic4dvar_dict['output'][str]
+            else:
+                arr[sic4dvar_dict['list_to_keep']] = sic4dvar_dict['output'][str][sic4dvar_dict['list_to_keep']]
+        if np.array(sic4dvar_dict['removed_indices']).size > 0:
+            arr[sic4dvar_dict['removed_indices']] = np.nan
+    elif str == 'q_algo5':
+        mask = np.ones(sic4dvar_dict['input_data']['node_z'].shape[1], dtype=bool)
+        arr = np.ones(sic4dvar_dict['input_data']['node_z'].shape[1]) * np.nan
+        if np.array(sic4dvar_dict['list_to_keep']).size > 0:
+            if len(sic4dvar_dict['list_to_keep']) == len(sic4dvar_dict['output'][str]):
+                arr[sic4dvar_dict['list_to_keep']] = sic4dvar_dict['output'][str]
+            else:
+                arr[sic4dvar_dict['list_to_keep']] = sic4dvar_dict['output'][str][sic4dvar_dict['list_to_keep']]
+        index_tmp = np.where(sic4dvar_dict['output'][str] <= 0.0)
+        arr[index_tmp[0]] = np.nan
+    for ind in range(0, len(arr)):
+        if not calc.check_na(arr[ind]):
+            mask[ind] = False
+    q_masked = np.ma.array(arr, mask=mask)
+    return q_masked

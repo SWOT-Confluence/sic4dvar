@@ -18,6 +18,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
+
 import logging
 import numpy as np
 import xml.etree.ElementTree as ET
@@ -53,8 +54,6 @@ def filter_swot_obs_on_quality(swot_dict_arrays, val_swot_q_flag):
             var_mask = np.greater(np.abs(swot_dict_arrays['node']['xtrk_dist']), q_val).filled(np.nan)
         elif q_var == 'xtrk_dist_min':
             var_mask = np.less(np.abs(swot_dict_arrays['node']['xtrk_dist']), q_val).filled(np.nan)
-        elif q_var == 'ice_clim_f':
-            var_mask = ~np.isin(swot_dict_arrays['node']['ice_clim_f'], q_val)
         elif q_var == 'dark_frac_max':
             var_mask = np.greater(swot_dict_arrays['node']['dark_frac'], q_val).filled(np.nan)
         elif q_var == 'n_good_pix_min':
@@ -82,10 +81,10 @@ def filter_swot_obs_on_quality(swot_dict_arrays, val_swot_q_flag):
         elif q_var == 'wse_r_u_max':
             var_mask = np.greater(swot_dict_arrays['node']['wse_r_u'], q_val).filled(np.nan)
         else:
-            print(f'WARNING : unable to filter node using var {q_var}, not found in SWOT file or empty ... skip')
+            logging.info(f'WARNING : unable to filter node using var {q_var}, not found in SWOT file or empty ... skip')
             var_mask = np.zeros((swot_dict_arrays['nx'], swot_dict_arrays['nt']))
         node_level_values_to_remove_mask = np.logical_or(node_level_values_to_remove_mask, var_mask)
-        print(f'Filtering SWOT Obs node with var {q_var} with values {q_val} : {np.sum(var_mask)} values to remove, {np.sum(~node_level_values_to_remove_mask)} left')
+        logging.info(f'Filtering SWOT Obs node with var {q_var} with values {q_val} : {np.sum(var_mask)} values to remove, {np.sum(~node_level_values_to_remove_mask)} left')
     for q_var, q_val in val_swot_q_flag['reach'].items():
         if q_var == 'obs_frac_n_min':
             var_mask = np.less(swot_dict_arrays['reach']['obs_frac_n'], q_val).filled(np.nan)
@@ -129,11 +128,11 @@ def filter_swot_obs_on_quality(swot_dict_arrays, val_swot_q_flag):
             else:
                 var_mask = np.tile(False, (1, swot_dict_arrays['nt']))
         else:
-            print(f'WARNING : unable to filter reach using var {q_var}, not found in SWOT file or empty ... skip')
+            logging.info(f'WARNING : unable to filter reach using var {q_var}, not found in SWOT file or empty ... skip')
             var_mask = np.zeros((1, swot_dict_arrays['nt']))
         var_mask = np.tile(var_mask, (swot_dict_arrays['nx'], 1))
         node_level_values_to_remove_mask = np.logical_or(node_level_values_to_remove_mask, var_mask)
-        print(f'Filtering SWOT Obs reach with var {q_var} with values {q_val} : {np.sum(var_mask)} values to remove, {np.sum(~node_level_values_to_remove_mask)} left')
+        logging.info(f'Filtering SWOT Obs reach with var {q_var} with values {q_val} : {np.sum(var_mask)} values to remove, {np.sum(~node_level_values_to_remove_mask)} left')
     return node_level_values_to_remove_mask
 
 def filter_dict_using_mask(swot_dict_arrays, mask_array):
@@ -162,7 +161,10 @@ def get_flag_dict_from_config(config):
                 val_swot_q_flag_node[param.replace('node_level_', '')] = float(param_value)
         elif param.startswith('reach_level_'):
             if param.endswith('_f') or param.endswith('_q') or param.endswith('_q_b'):
-                val_swot_q_flag_reach[param.replace('reach_level_', '')] = [int(p) for p in param_value.split(',')]
+                if isinstance(param_value, int):
+                    val_swot_q_flag_reach[param.replace('reach_level_', '')] = float(param_value)
+                elif isinstance(param_value, str):
+                    val_swot_q_flag_reach[param.replace('reach_level_', '')] = [int(p) for p in param_value.split(',')]
             else:
                 val_swot_q_flag_reach[param.replace('reach_level_', '')] = float(param_value)
     val_swot_q_flag = {'node': val_swot_q_flag_node, 'reach': val_swot_q_flag_reach}
@@ -177,21 +179,29 @@ def get_var_description_from_riversp_xml_file(riversp_xml_file_path, var):
             var_description[j.tag] = j.text
     return var_description
 
-def filter_q_b(q_b_array, vals):
-    vals.sort(reverse=True)
-    target_bin_val = bin(sum((1 << i for i in vals)))[2:]
+def get_list_of_flags_from_decimal(dec_num):
+    bit_positions = []
+    position = 0
+    while dec_num > 0:
+        if dec_num & 1:
+            bit_positions.append(position)
+        dec_num >>= 1
+        position += 1
+    bit_positions.sort(reverse=True)
+    return bit_positions
+
+def filter_q_b(q_b_array, q_b_target):
+    q_b_target.sort(reverse=True)
+    q_b_target_dec = sum((1 << i for i in q_b_target))
     mask_array = np.zeros(q_b_array.shape).astype('int')
     q_b_array_unique_values, counts = np.unique(q_b_array, return_counts=True)
-    q_b_array_unique_values_bin = [bin(int(val))[2:].zfill(29) for val in q_b_array_unique_values]
-    for value, value_bin in zip(q_b_array_unique_values, q_b_array_unique_values_bin):
-        discard_value = False
-        for i in vals:
-            if value_bin[-i] == '1':
-                discard_value = True
-                break
-        if discard_value:
-            logging.info(f'Discards {np.sum(q_b_array == value)} q_b value {value_bin} to target {target_bin_val}')
-            mask_array[q_b_array == value] = 1
+    for q_b_decimal_value in q_b_array_unique_values.astype(int):
+        q_b_value = get_list_of_flags_from_decimal(q_b_decimal_value)
+        if len(set(q_b_target) & set(q_b_value)) > 0:
+            logging.info(f'Discards {np.sum(q_b_array == q_b_decimal_value)} values with q_b flags {q_b_value} ; {q_b_target}')
+            logging.debug(f'Decimal value : {q_b_decimal_value}; decimal target {q_b_target_dec}')
+            logging.debug(f'Binary value : {bin(q_b_decimal_value)}; binary target {bin(q_b_target_dec)}')
+            mask_array[q_b_array == q_b_decimal_value] = 1
     return mask_array
 
 def main():

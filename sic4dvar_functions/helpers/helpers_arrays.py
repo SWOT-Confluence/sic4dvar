@@ -18,6 +18,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
+
 import copy
 import itertools
 import math
@@ -51,14 +52,14 @@ def masked_array_to_nan_array(my_array: np.ma.MaskedArray):
             max_value = np.nanmax(my_array1)
         if my_array1.dtype == np.int32:
             if not np.isnan(max_value):
-                error_msg = 'max value of array is bigger than max allowed valued in float 32'
+                error_msg = ''
                 if max_value > np.finfo(np.float32).max:
                     raise RuntimeError(error_msg)
             my_array1 = my_array1.astype(np.float32)
             return my_array1
         if my_array1.dtype == np.int64:
             if not np.isnan(max_value):
-                error_msg = 'max value of array is bigger than max allowed valued in float 64'
+                error_msg = ''
                 if max_value > np.finfo(np.float64).max:
                     raise RuntimeError(error_msg)
             my_array1 = my_array1.astype(np.float64)
@@ -80,7 +81,7 @@ def arrays_rmv_nan_pair(x0: Iterable, y0: Iterable) -> Tuple[np.ndarray, np.ndar
     x = masked_array_to_nan_array(x)
     y = masked_array_to_nan_array(y)
     if x.size != y.size:
-        raise TypeError('for removing NaN in pairs, x and y must be the same size')
+        raise TypeError('')
     df = pd.DataFrame({'x': x, 'y': y})
     df.dropna(axis=0, how='any', inplace=True)
     x, y, i = (np.array(df['x']), np.array(df['y']), np.array(df.index, dtype=np.int32))
@@ -89,7 +90,7 @@ def arrays_rmv_nan_pair(x0: Iterable, y0: Iterable) -> Tuple[np.ndarray, np.ndar
 def arrays_rmv_next_same(x0: np.ndarray | Iterable, y0: np.ndarray | Iterable, float_atol: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     x, y = [iterable_to_flattened_array(i_) for i_ in [x0, y0]]
     if x.size != y.size:
-        raise TypeError('for removing consecutive entries that are the same, x and y must be the same size')
+        raise TypeError('')
     x_is_int = True if np.issubdtype(x.dtype, np.integer) else False
     y_is_int = True if np.issubdtype(y.dtype, np.integer) else False
     no_dup_x_list = [x[0]]
@@ -135,7 +136,7 @@ def find_nearest(my_array: np.ndarray | Iterable, value) -> Tuple[int, float]:
 
 def find_n_nearest(my_array: np.ndarray | Iterable, value: Any, n: int) -> Tuple[np.ndarray, np.ndarray]:
     if n < 1:
-        raise TypeError('n must be bigger than 1')
+        raise TypeError('')
     ids, my_array = sort_by_distance_to_value(my_array, value)
     return (ids[:n], my_array[:n])
 
@@ -169,13 +170,13 @@ def find_relative_nearest(my_array0: np.ndarray, value: float, rel_diff_thr: flo
 
 def _arrays_de_in_crease(my_array: np.ndarray | Iterable, comp_op: operator, check: bool, force: bool, remove_nan: bool=True) -> np.ndarray | bool:
     if check and force:
-        raise TypeError('only one of force or check can be True')
+        raise TypeError('')
     if not check and (not force):
-        raise TypeError('one of force or check must be True')
+        raise TypeError('')
     if not isinstance(my_array, np.ndarray):
         my_array = np.array(my_array)
     if my_array.ndim != 1:
-        raise TypeError('can only check/force increase/decrease with 1D arrays')
+        raise TypeError('')
     my_array1 = copy.deepcopy(my_array)
     if remove_nan:
         my_array1 = my_array1[np.isfinite(my_array1)]
@@ -208,7 +209,7 @@ def get_mask_nan_across_arrays(*my_arrays: np.ndarray | np.ma.MaskedArray) -> np
         my_arrays = (my_arrays,)
     for arr in my_arrays:
         if arr.ndim > 2:
-            raise TypeError('only works with 1D or 2D arrays')
+            raise TypeError('')
         arr1 = copy.deepcopy(arr)
         arr1 = masked_array_to_nan_array(arr1)
         if expected_shape is None:
@@ -216,7 +217,7 @@ def get_mask_nan_across_arrays(*my_arrays: np.ndarray | np.ma.MaskedArray) -> np
             sum_array = copy.deepcopy(arr1)
             continue
         if arr.shape != expected_shape:
-            raise TypeError('shape of all arrays should be the same')
+            raise TypeError('')
         sum_array += arr1
         if np.any(np.isfinite(sum_array)):
             sum_array /= np.nanmin(sum_array)
@@ -504,14 +505,14 @@ def datetime_array_set_to_freq_and_filter(data_dt: np.ndarray | pd.Series | tupl
                 mask_bool[mask_id0 + n_sec] = False
                 continue
             else:
-                e_loc = f'{all_dt_timerange[all_id]} for {all_dt_timerange[n_sec - 1]} and {all_dt_timerange[n_sec]}'
-                raise IndexError(f'duplicated data considering frequency {freq_datetime}: {e_loc}')
+                e_loc = f''
+                raise IndexError(f'')
         keep_ids.append(all_id)
         bisect_low_id = all_id
     n_val_elems = np.count_nonzero(mask_bool)
     n_kept_elems = len(keep_ids)
     if n_val_elems != n_kept_elems:
-        raise AssertionError(f'number of valid elements {n_val_elems} does not match kept elements {n_kept_elems}')
+        raise AssertionError(f'')
     all_dt_timerange = all_dt_timerange[keep_ids]
     all_dt_sec_array = all_dt_sec_array[keep_ids]
     return (mask_bool, all_dt_timerange, all_dt_sec_array)

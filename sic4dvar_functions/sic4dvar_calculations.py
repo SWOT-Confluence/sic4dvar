@@ -18,6 +18,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
+
 import sic4dvar_params as params
 if params.cython_version:
     import sic4dvar_cyfuncs as cy
@@ -31,15 +32,8 @@ import logging
 import inspect
 from pathlib import Path
 import matplotlib.pyplot as plt
-from sic4dvar_functions.j.z753 import M
+from sic4dvar_functions.cs.m816 import M
 from lib.lib_verif import verify_name_length, check_na
-try:
-    from Confluence.input.input.extract.CalculateHWS import CalculateHWS
-    from Confluence.input.input.extract.DomainHWS import DomainHWS
-    from Confluence.input.input.extract.HWS_IO import HWS_IO
-    Confluence_HWS_method = True
-except ImportError:
-    Confluence_HWS_method = False
 
 def ManningLW(a0, abar, w, s, n):
     return n ** (-1) * (a0 + abar) ** (5 / 3) * w ** (-2 / 3) * abs(s) ** (1 / 2)
@@ -391,7 +385,7 @@ def betad(i_type, k, delay, sp):
         abet = delay * sp
         bbet = (1.0 - delay) * sp
     else:
-        print('')
+        print('error from betad: type of beta-function is not defined')
     yarg_gm = wgh3(k, abet, bbet, cbet)
     ym = 0.0
     for i in range(1, k):
@@ -690,130 +684,6 @@ def compute_bb(depth_mean, W0_mean, A0_mean, P0_mean):
         if abs(bb0 / bb - 1.0) <= 0.01:
             break
     return bb
-
-def create_confluence_dict(reach_time, reach_z, reach_w, reach_s):
-    ObsData = {}
-    ObsData['nR'] = 1
-    ObsData['xkm'] = np.nan
-    ObsData['L'] = np.nan
-    ObsData['nt'] = len(reach_time)
-    ObsData['t'] = reach_time
-    ObsData['h'] = np.empty((ObsData['nR'], ObsData['nt']))
-    ObsData['h0'] = np.empty((ObsData['nR'], 1))
-    ObsData['S'] = np.empty((ObsData['nR'], ObsData['nt']))
-    ObsData['w'] = np.empty((ObsData['nR'], ObsData['nt']))
-    for i in range(0, ObsData['nR']):
-        ObsData['h'][i, :] = reach_z
-        ObsData['w'][i, :] = reach_w
-        ObsData['S'][i, :] = reach_s
-    ObsData['sigh'] = 0.1
-    ObsData['sigw'] = 10.0
-    ObsData['sigS'] = 1.7e-05
-    ObsData['iDelete'] = np.where(np.isnan(ObsData['w'][0, :]) | np.isnan(ObsData['h'][0, :]))
-    return ObsData
-
-def bathymetry_computation(node_w, node_z, param_dict, params, input_data=[], filtered_data=[], slope=[]):
-    node_xr = []
-    node_yr = []
-    for i in range(len(node_w)):
-        if not params.pankaj_test:
-            if param_dict['cs_method'] == 'POM':
-                results = f_approx_sections_v6(node_w[i], node_z[i], params.approx_section_params[0], params.approx_section_params[1], params.approx_section_params[2])
-            elif param_dict['cs_method'] == 'Igor':
-                results = M(node_w[i], node_z[i], max_iter=params.LSMX, cor_z=None, inter_behavior=True, inter_behavior_min_thr=params.def_float_atol, inter_behavior_max_thr=params.DX_max_in, min_change_v_thr=0.0001, first_sweep='forward', cs_float_atol=params.def_float_atol, number_of_nodes=len(node_z), plot=False)
-            elif param_dict['cs_method'] == 'Mike' and Confluence_HWS_method:
-                if param_dict['use_reach_slope']:
-                    ObsData = create_confluence_dict(filtered_data['reach_t'], node_z[i], node_w[i], filtered_data['reach_s'])
-                else:
-                    ObsData = create_confluence_dict(filtered_data['reach_t'], node_z[i], node_w[i], slope)
-                D = DomainHWS(ObsData)
-                hws_obj = CalculateHWS(D, ObsData)
-                if hasattr(hws_obj, 'area_fit'):
-                    results = [hws_obj.area_fit['w_break'], hws_obj.area_fit['h_break']]
-                    results2 = [hws_obj.wobs, hws_obj.hobs]
-                if i == 10:
-                    print(i)
-                    print(np.nanmin(results2[0]))
-            node_xr += [results[0]]
-            node_yr += [results[1]]
-            if param_dict['cs_plot_debug']:
-                results_pom = f_approx_sections_v6(node_w[i], node_z[i], params.approx_section_params[0], params.approx_section_params[1], params.approx_section_params[2])
-                results_igor = M(node_w[i], node_z[i], max_iter=params.LSMX, cor_z=None, inter_behavior=True, inter_behavior_min_thr=params.def_float_atol, inter_behavior_max_thr=params.DX_max_in, min_change_v_thr=0.0001, first_sweep='forward', cs_float_atol=params.def_float_atol, number_of_nodes=len(node_z), plot=False)
-                if Confluence_HWS_method:
-                    ObsData = create_confluence_dict(filtered_data['reach_t'], node_z[i], node_w[i], filtered_data['reach_s'])
-                    D = DomainHWS(ObsData)
-                    hws_obj = CalculateHWS(D, ObsData)
-                    results_mike = [hws_obj.cs_w[0], hws_obj.cs_z[0]]
-                    plt.plot(results_mike[0], results_mike[1])
-                plt.plot(results_pom[0], results_pom[1])
-                plt.plot(results_igor[0], results_igor[1])
-                plt.plot(node_w[i], node_z[i], marker='.', linestyle='None')
-                plt.show()
-                plt.clf()
-    if param_dict['gnuplot_saving']:
-        node_x = input_data['node_x']
-        times2 = np.around(input_data['reach_t'] / 3600 / 24)
-        times2 = times2 - np.nanmin(times2)
-        nodes2 = (node_x - node_x[0]) / 1000
-        reach_id = str(input_data['reach_id'])
-        reach_id = verify_name_length(reach_id)
-        output_path = param_dict['output_dir'].joinpath('gnuplot_data', str(reach_id))
-        if not Path(output_path).is_dir():
-            Path(output_path).mkdir(parents=True, exist_ok=True)
-        output_path = param_dict['output_dir'].joinpath('gnuplot_data', str(reach_id), 'cs')
-    return (node_xr, node_yr)
-
-def call_func_APR(node_w, node_z, node_xr, node_yr, params, param_dict):
-    node_a = node_w.copy()
-    node_p = node_w.copy()
-    node_r = node_w.copy()
-    node_w_simp = node_w.copy()
-    depth_mean = []
-    A0_mean = []
-    P0_mean = []
-    W0_mean = []
-    for i in range(len(node_w)):
-        node_a[i], node_p[i], node_r[i], node_w_simp[i] = fnc_APR(node_z[i], node_xr[i], node_yr[i])
-        depth_section = 0.0
-        if param_dict['bb_computation']:
-            depth_section = np.nanmax(node_yr[i]) - np.nanmin(node_yr[i])
-            A0 = 0
-            P0 = node_xr[i][0]
-            for j in range(0, len(node_xr[i]) - 1):
-                A0 = A0 + (node_xr[i][j] + node_xr[i][j + 1]) / 2 * (node_yr[i][j + 1] - node_yr[i][j])
-                P0 = P0 + 2 * np.sqrt((node_xr[i][j + 1] / 2 - node_xr[i][j] / 2) ** 2 + (node_yr[i][j + 1] - node_yr[i][j]) ** 2)
-                if node_yr[i][j] - np.nanmin(node_yr[i]) > (np.nanmax(node_yr[i]) - np.nanmin(node_yr[i])) / 2:
-                    depth_section = (np.nanmax(node_yr[i]) - np.nanmin(node_yr[i])) / 2
-                    break
-            if False:
-                results2 = f_approx_sections_v6(node_w[i], node_z[i], params.approx_section_params[0], params.approx_section_params[1], params.approx_section_params[2])
-                plt.plot(node_xr[i], node_yr[i])
-                plt.plot(results2[0], results2[1])
-                plt.plot(node_w[i], node_z[i], marker='.', linestyle='None')
-                print('A0, P0, R, depth, depth/R:', A0, P0, A0 / P0, depth_section, depth_section / (A0 / P0))
-                plt.show()
-                plt.clf()
-            A0_mean.append(A0)
-            P0_mean.append(P0)
-            W0_mean.append(node_xr[i][0])
-        index_temp = np.where(node_w_simp[i] == 0.0)
-        node_w_simp[i][index_temp] = np.nanmin(node_xr[i][np.where(node_xr[i] > 0.0)])
-        depth_mean.append(depth_section)
-    if not param_dict['bb_computation']:
-        bb = 9999.0
-    else:
-        depth_mean = np.nanmean(depth_mean)
-        A0_mean = np.nanmean(A0_mean)
-        P0_mean = np.nanmean(P0_mean)
-        W0_mean = np.nanmean(W0_mean)
-        print('depth_mean, A0_mean, P0_mean, W0_mean:', depth_mean, A0_mean, P0_mean, W0_mean)
-        print('mean Radius:', A0_mean / P0_mean, depth_mean / (A0_mean / P0_mean))
-        bb = compute_bb(depth_mean, W0_mean, A0_mean, P0_mean)
-        print('Final computed bb:', bb)
-        if bb < 1:
-            bb = 1
-        print('Final bb:', bb)
-    return (node_a, node_p, node_r, node_w_simp, bb)
 
 def compute_mean_discharge_from_SoS_quantiles(quantiles):
     nq = len(quantiles)

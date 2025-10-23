@@ -17,20 +17,32 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+@authors:   Callum TYLER, callum.tyler@inrae.fr
+            Dylan QUITTARD, dylan.quittard@inrae.fr
+                All functions not mentioned above.
+            Cécile Cazals, cecile.cazals@cs-soprasteria.com
+                logger
+
+Description:
+    Parameters file for sic4dvar (algo315).
 """
+#SIC4DVAR LOW-COST VERSION 2.1
+#NEW: most parameters are now read from the config file
+#For Confluence bindings, see default config file.
+
 from pathlib import Path
 import numpy as np
 import multiprocessing
 from datetime import datetime
-algo_bounds = [[5.0], [-20.05, -0.05, -0.25], [10.0, 60.0, 5.0]]
-algo_bounds[2][2] = (algo_bounds[2][1] - algo_bounds[2][0]) / 8.0
+algo_bounds = [[5.0], [-10.01, -0.01, -0.25], [10.0, 60.0, 5.0]]
+algo_bounds[2][2] = (algo_bounds[2][1] - algo_bounds[2][0]) / 20.0
 slope_smoothing_num_passes = 0
 approx_section_params = [8, 0.15, 2]
 kDim = 101
 shape03 = 10.0
-val1 = (algo_bounds[1][0] + algo_bounds[1][1]) / 2.0
+val1 = -1.0
 shape13 = 2.1
-val2 = (algo_bounds[2][0] + algo_bounds[2][1]) / 2.0
+val2 = 28.6
 shape23 = 2.1
 local_QM1 = 1.0
 cython_version = False
@@ -38,7 +50,7 @@ min_num_nodes = 1
 reachNB = 0
 extrapolation = True
 Option = 2
-LSMX = 10
+LSMX = 5
 LSMT = 1
 corx = 0.2 * 1000
 cort = 1 * 6 * 3600.0
@@ -55,18 +67,67 @@ create_tables = False
 opt_sword_boost = False
 large_deviations = True
 old_extrapolation = False
-a31_early_stop = False
+a31_early_stop = True
 force_specific_dates = False
-start_date = datetime(2023, 7, 11)
-end_date = datetime(2023, 12, 31)
+start_date = datetime(2023, 7, 12)
+end_date = datetime(2025, 12, 31)
 replace_config = True
-config_file_path = '/app/sic4dvar_param_confluence.ini'
+config_file_path = 'sic4dvar_param_confluence.ini'
+log_dir = '/mnt/data/input/log/'
 densification = False
 num_cores = multiprocessing.cpu_count()
 max_cores = int(num_cores / 2)
 no_print = False
+q_mean_computed = False
+akgd = False
+override_cort = False
+constant_slope = True
+kgokrgo = True
+uniform_friction = False
 qsdev_activate = False
-qsdev_option = 1
+qsdev_option = 0
+indicators_experimental_computation = True
+use_fallback_sos = False
+use_dynamic_spread = False
+use_mean_for_bounds = True
+relative_variance = 1.0
+auto_spread_for_runs = True
+ogpdrogpgkl = False
+corx_option = 0
+drop_threshold = 0.3 / 200
+ML_time_series_path = ''
+q_prior_from_ML = False
+ML_priors_force_quit = True
+run_dkfkf = True
+run_fzekje = True
+day_length = 1000000.0
+test = 'normal'
+if test == 'stations':
+    shape03 = 100.0
+    station_period_only = True
+    activate_facc = False
+    use_fallback_sos = True
+    fallback_sos_dir = '/mnt/DATA/worksync/Nouveau dossier/sic/Igor_run_compa/input/sos/unconstrained/v16d/'
+    use_dynamic_spread = False
+    use_mean_for_bounds = True
+elif test == 'ML':
+    shape03 = 30.0
+    station_period_only = True
+    activate_facc = False
+    use_fallback_sos = False
+    fallback_sos_dir = ''
+    use_dynamic_spread = False
+    use_mean_for_bounds = True
+    q_prior_from_ML = True
+else:
+    shape03 = 30.0
+    station_period_only = False
+    activate_facc = True
+    use_fallback_sos = False
+    fallback_sos_dir = ''
+    use_dynamic_spread = False
+    use_mean_for_bounds = True
+    q_prior_from_ML = False
 eps1 = 0.01
 eps2 = 0.0001
 force_create_reach_t = True

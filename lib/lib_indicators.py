@@ -18,6 +18,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
+
 from scipy.stats import spearmanr, pearsonr, rankdata
 import numpy as np
 
@@ -69,12 +70,24 @@ def nse1(y_true, y_pred, time_frequency=np.array([])):
 def nrmse(y_true, y_pred, time_frequency=np.array([])):
     n = len(y_true)
     if time_frequency.any():
-        RMSE = np.sqrt(np.average((y_true - y_pred) ** 2, weights=time_frequency))
+        RMSE = rmse(y_true, y_pred, time_frequency)
         y_true_mean = np.average(y_true, weights=time_frequency)
     else:
-        RMSE = np.sqrt(np.nansum((y_true - y_pred) ** 2) / n)
+        RMSE = rmse(y_true, y_pred)
         y_true_mean = np.nanmean(y_true)
     return RMSE / y_true_mean
+
+def rmse(y_true, y_pred, time_frequency=np.array([])):
+    if (np.isfinite(y_true) != np.isfinite(y_pred)).any():
+        valid_idx = np.logical_and(np.isfinite(y_true), np.isfinite(y_pred))
+        y_true = y_true[valid_idx]
+        y_pred = y_pred[valid_idx]
+    n = len(y_true)
+    if time_frequency.any():
+        RMSE = np.sqrt(np.average((y_true - y_pred) ** 2, weights=time_frequency))
+    else:
+        RMSE = np.sqrt(np.nansum((y_true - y_pred) ** 2) / n)
+    return RMSE
 
 def extrema_high(y_true, y_pred, time_frequency):
     percen_list = [0.99, 0.98, 0.97, 0.96, 0.95]
@@ -102,24 +115,34 @@ def compute_all_indicators_from_predict_true(y_true, y_pred, time_frequency=np.a
     indicators['extrema_low'] = extrema_low(y_true, y_pred, time_frequency)
     return indicators
 
-def nbias(y_true, y_pred, time_frequency=np.array([])):
+def bias(y_true, y_pred, time_frequency=np.array([])):
+    if (np.isfinite(y_true) != np.isfinite(y_pred)).any():
+        valid_idx = np.logical_and(np.isfinite(y_true), np.isfinite(y_pred))
+        y_true = y_true[valid_idx]
+        y_pred = y_pred[valid_idx]
     if time_frequency.any():
         y_true_mean = np.nanmean(y_true * time_frequency)
         y_pred_mean = np.nanmean(y_pred * time_frequency)
     else:
         y_true_mean = np.nanmean(y_true)
         y_pred_mean = np.nanmean(y_pred)
-    nbias = (y_pred_mean - y_true_mean) / y_true_mean
+    bias = y_pred_mean - y_true_mean
+    return bias
+
+def nbias(y_true, y_pred, time_frequency=np.array([])):
+    if (np.isfinite(y_true) != np.isfinite(y_pred)).any():
+        valid_idx = np.logical_and(np.isfinite(y_true), np.isfinite(y_pred))
+        y_true = y_true[valid_idx]
+        y_pred = y_pred[valid_idx]
+    if time_frequency.any():
+        y_true_mean = np.nanmean(y_true * time_frequency)
+    else:
+        y_true_mean = np.nanmean(y_true)
+    nbias = bias(y_true, y_pred, time_frequency) / y_true_mean
     return nbias
 
 def absnbias(y_true, y_pred, time_frequency=np.array([])):
-    if time_frequency.any():
-        y_true_mean = np.nanmean(y_true * time_frequency)
-        y_pred_mean = np.nanmean(y_pred * time_frequency)
-    else:
-        y_true_mean = np.nanmean(y_true)
-        y_pred_mean = np.nanmean(y_pred)
-    nbias = abs((y_true_mean - y_pred_mean) / y_true_mean)
+    nbias = abs(nbias(y_true, y_pred, time_frequency))
     return nbias
 
 def main():
