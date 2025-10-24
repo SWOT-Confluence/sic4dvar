@@ -235,7 +235,7 @@ def bathymetry_computation(node_w, node_z, param_dict, params, input_data=[], fi
                 results = f_approx_sections_v6(node_w[i], node_z[i], params.approx_section_params[0], params.approx_section_params[1], params.approx_section_params[2])
             elif cs_method == 'Igor':
                 results = M(node_w[i], node_z[i], max_iter=params.LSMX, cor_z=None, inter_behavior=True, inter_behavior_min_thr=params.def_float_atol, inter_behavior_max_thr=params.DX_max_in, min_change_v_thr=0.0001, first_sweep='forward', cs_float_atol=params.def_float_atol, number_of_nodes=len(node_z), plot=False)
-                results = f_approx_sections_v6(results[0], results[1], NbIter=4, SeuilDistance=0.1, FSort=0)
+                results = f_approx_sections_v6(results[0], results[1], params.approx_section_params[0], params.approx_section_params[1], FSort=0)
             elif cs_method == 'Mike' and Confluence_HWS_method:
                 results, _ = mike_method(param_dict, filtered_data, node_z, node_w, i, slope, algo, input_data)
             node_xr += [results[0]]
