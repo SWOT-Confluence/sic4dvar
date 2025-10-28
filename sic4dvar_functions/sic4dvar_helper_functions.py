@@ -900,14 +900,15 @@ def write_output(output_dir, param_dict, _reach_id, _output, reach_number=0, fol
     elevation = out_nc.createVariable('elevation', 'f8', ('nodes', 'nb_pts'), fill_value=fill_value)
     q_u = out_nc.createVariable('q_u', 'f8', ('nt',), fill_value=fill_value)
 
-    if 'width' in _output:
-        for i in range(0, len(_output['width'])):
-            width[i] = np.pad(_output['width'][i], (0, max_length - len(_output['width'][i])))
-            elevation[i] = np.pad(_output['elevation'][i], (0, max_length - len(_output['elevation'][i])))
+    if "width" in _output:
+        for i in range(0,len(_output["width"])):
+            width[i] = np.pad(_output["width"][i], (0, max_length-len(_output["width"][i]) ), mode='constant', constant_values=np.nan )
+            elevation[i] = np.pad(_output["elevation"][i], (0, max_length-len(_output["elevation"][i]) ), mode='constant', constant_values=np.nan )
+    
     else:
-        for i in range(0, len(_output['q_algo31'])):
-            width[i] = np.pad(_output['q_algo31'][i], (0, max_length - 0))
-            elevation[i] = np.pad(_output['q_algo31'][i], (0, max_length - 0))
+        for i in range(0,len(_output["q_algo31"])):
+            width[i] = np.pad(_output["q_algo31"][i], (0, max_length-0 ), mode='constant', constant_values=np.nan )
+            elevation[i] = np.pad(_output["q_algo31"][i], (0, max_length-0), mode='constant', constant_values=np.nan  )
 
     q_u[:] = np.ones(len(nt[:])) * fill_value
     logging.info('q_u:%s' % str(q_u[:]))
