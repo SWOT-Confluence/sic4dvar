@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -17,8 +15,14 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+Created on September 18th 2023 at 19:00
+by @Isadora Silva
 
+Last modified on February 23rd 2024 at 18:00
+by @Isadora Silva
+
+@authors: Isadora Silva
+"""
 import copy
 import pathlib
 from datetime import datetime
@@ -30,6 +34,45 @@ from sic4dvar_classes.sic4dvar_0_defaults import SIC4DVarLowCostDefaults
 from sic4dvar_functions.helpers.helpers_arrays import masked_array_to_nan_array, check_shape, array_as_row_vector, array_as_col_vector, datetime_array_set_to_freq_and_filter
 
 def get_vars_from_swot_nc(reach_ids: Tuple[str | int, ...], swot_file_pattern: str | pathlib.PurePath, node_vars: Tuple[str, ...]=(), reach_vars: Tuple[str, ...]=(), val_swot_q_flag: Tuple[int, ...]=SIC4DVarLowCostDefaults().def_val_swot_q_flag, freq_datetime: str=SIC4DVarLowCostDefaults().def_freq_datetime, dup_datetime: Literal['drop', 'raise']='raise', start_datetime: datetime | float | int | None=None, end_datetime: datetime | float | int | None=None, clean_run: bool=False, debug_mode: bool=False) -> Tuple[Dict[Dict, Dict], datetime]:
+    """
+    Read SWOT-like observations of the specified node and reach variables of the specified reach_ids.
+    1D arrays are forced to either row or column vectors.
+
+    Parameters
+    ----------
+    reach_ids : Tuple[str | int, ...]
+        The reach ids to be read from the SWOT file
+    swot_file_pattern :
+        The pattern to the SWORD netCDF files, to be formatted using the reach_ids.
+    node_vars : Tuple[str, ...]
+        The node variables to be loaded
+    reach_vars : Tuple[str, ...]
+        The reach variables to be loaded
+    val_swot_q_flag: Tuple[int, ...]
+        The quality flags for valid data (0: nominal, 1: suspect, 2: degraded quality, and 3: bad).
+    freq_datetime : datetime
+        The time of observations is approximated every freq when loading the data.
+        Multiplier and str "D", "h", "min", "s". E.g.: "3h", "D". Set as "" to skip this.
+        https://pandas.pydata.org/docs/user_guide/timeseries.html#timeseries-offset-aliases
+    dup_datetime: Literal["drop", "raise"]
+        What to do when the data is assigned to the same datetime. Either "drop", "raise": "drop" drops all
+         occurrences except the first one; "raise" raises IndexError.
+    start_datetime: datetime | float | int | None
+        start datetime for filtering the data (>=). Either as datetime or as seconds from reference (float or int).
+    end_datetime: datetime | float | int | None
+        end datetime for filtering the data (<=). Either as datetime or as seconds from reference (float or int).
+    clean_run : bool
+        Whether to print statements while running this function
+    debug_mode : bool
+        Whether to print debug statements while running this function
+
+    Returns
+    -------
+    Tuple[Dict[Dict, Dict], datetime]:
+        (i) Dictionary with the unmasked arrays. Structure {"nodes": {node_dict}, "reaches": {reach_dict}}.
+         Each inner dict contains a tuple whose elements are the unmasked arrays for each reach_id.
+        (ii) Reference datetime
+    """
     if clean_run:
         debug_mode = False
     if debug_mode:
@@ -131,6 +174,49 @@ def get_vars_from_swot_nc(reach_ids: Tuple[str | int, ...], swot_file_pattern: s
     return (swot_dict_arrays, ref_datetime)
 
 def get_array_dict_from_swot_nc(reach_ids: Tuple[str | int, ...], swot_file_pattern: str | pathlib.PurePath, use_node_z: bool, use_node_w: bool, use_reach_slope: bool, compute_swot_q: bool, use_uncertainty: bool, val_swot_q_flag: Tuple[int, ...]=SIC4DVarLowCostDefaults().def_val_swot_q_flag, freq_datetime: str=SIC4DVarLowCostDefaults().def_freq_datetime, dup_datetime: Literal['drop', 'raise']='raise', start_datetime: datetime | float | int | None=None, end_datetime: datetime | float | int | None=None, clean_run: bool=False, debug_mode: bool=False) -> Tuple[Dict, datetime]:
+    """
+    Read SWOT-like observations of the specified node and reach variables of the specified reach_ids.
+    1D arrays are forced to either row or column vectors.
+
+    Parameters
+    ----------
+    reach_ids : Tuple[str | int, ...]
+        The reach ids to be read from the SWOT file
+    swot_file_pattern : str | pathlib.PurePath
+        The pattern to the SWORD netCDF files, to be formatted using the reach_ids.
+    use_node_z : bool
+        Whether to load the water surface elevation data.
+    use_node_w : bool
+        Whether to load the width data
+    use_reach_slope : bool
+        Whether to load the reach slope data
+    compute_swot_q : bool
+        Whether to load the reach delta area and width data
+    use_uncertainty : bool
+        Whether to load the uncertainty data.
+    val_swot_q_flag: Tuple[int, ...]
+        The quality flags for valid data (0: nominal, 1: suspect, 2: degraded quality, and 3: bad).
+    freq_datetime : datetime
+        The time of observations is approximated every freq when loading the data.
+        Multiplier and str "D", "h", "min", "s". E.g.: "3h", "D". Set as "" to skip this.
+        https://pandas.pydata.org/docs/user_guide/timeseries.html#timeseries-offset-aliases
+    dup_datetime: Literal["drop", "raise"]
+        What to do when the data is assigned to the same datetime. Either "drop", "raise": "drop" drops all
+         occurrences except the first one; "raise" raises IndexError.
+    start_datetime: datetime | float | int | None
+        start datetime for filtering the data (>=). Either as datetime or as seconds from reference (float or int).
+    end_datetime: datetime | float | int | None
+        end datetime for filtering the data (<=). Either as datetime or as seconds from reference (float or int).
+    clean_run : bool
+        Whether to print statements while running this function
+    debug_mode : bool
+        Whether to print debug statements while running this function
+
+    Returns
+    -------
+    Dict
+        Dict with arrays
+    """
     if clean_run:
         debug_mode = False
     if debug_mode:

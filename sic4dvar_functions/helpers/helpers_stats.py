@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -17,8 +15,14 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+Created on March 11th 2024 at 10:00
+by @Isadora Silva
 
+Last modified on April 18th 2024 at 07:00
+by @Isadora Silva
+
+@authors: Isadora Silva
+"""
 import pathlib
 import statistics
 from typing import Iterable
@@ -75,124 +79,191 @@ class StatsSummarizer:
 
     @property
     def validation_mean(self):
+        """ the mean of the validation values """
         if np.isnan(self._validation_mean):
             self._validation_mean = np.nanmean(self._val)
         return self._validation_mean
 
     @property
     def validation_variance(self):
+        """ the variance of the validation values """
         if np.isnan(self._validation_variance):
             self._validation_variance = np.nanmean((self._val - self.validation_mean) ** 2)
         return self._validation_variance
 
     @property
     def validation_std(self):
+        """ the standard deviation of the validation values """
         return np.sqrt(self.validation_variance)
 
     @property
     def validation_quantiles(self):
+        """ min, 1%, 10%, 25%, 50%, 75%, 90%, 99% and max of simulation values """
         if self._validation_quantiles.size == 0:
             self._validation_quantiles = np.nanquantile(self._val, [0.0, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0])
         return self._validation_quantiles
 
     @property
     def simulation_mean(self):
+        """ the mean of the simulation values """
         if np.isnan(self._simulation_mean):
             self._simulation_mean = np.nanmean(self._sim)
         return self._simulation_mean
 
     @property
     def simulation_variance(self):
+        """ the variance of the simulation values """
         if np.isnan(self._simulation_variance):
             self._simulation_variance = np.nanmean((self._sim - self.simulation_mean) ** 2)
         return self._simulation_variance
 
     @property
     def simulation_std(self):
+        """ the standard deviation of the simulation values """
         return np.sqrt(self.simulation_variance)
 
     @property
     def simulation_quantiles(self):
+        """ min, 1%, 10%, 25%, 50%, 75%, 90%, 99% and max of simulation values """
         if self._simulation_quantiles.size == 0:
             self._simulation_quantiles = np.nanquantile(self._sim, [0.0, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0])
         return self._simulation_quantiles
 
     @property
     def me(self):
+        """
+        ME (Mean Error) is the average of the differences between the true and predicted values
+        """
         if np.isnan(self._me):
             self._me = np.nanmean(self._df['error'])
         return self._me
 
     @property
     def mre(self):
+        """
+        MRE (Mean Relative Error) is the average of the differences between the true and predicted values relative
+         to the true values
+        """
         if np.isnan(self._mre):
             self._mre = np.nanmean(self._df['relative_error'])
         return self._mre
 
     @property
     def mae(self):
+        """
+        MAE (Mean Absolute Error) is the average of the absolute differences between the true and predicted values
+        """
         if np.isnan(self._mae):
             self._mae = np.nanmean(np.abs(self._df['error']))
         return self._mae
 
     @property
     def mare(self):
+        """
+        MAE (Mean Absolute Relative Error) is the average of the absolute differences between the true and predicted
+         values relative to the true values
+        """
         if np.isnan(self._mare):
             self._mare = np.nanmean(np.abs(self._df['relative_error']))
         return self._mare
 
     @property
     def mse(self):
+        """
+        MSE (Mean Squared Error) is the average of the squared differences between the true and predicted values
+        """
         if np.isnan(self._mse):
             self._mse = np.nanmean(self._df['error'] ** 2)
         return self._mse
 
     @property
     def msre(self):
+        """
+        MSE (Mean Squared Relative Error) is the average of the squared differences between the true and predicted
+         values relative to the true values
+        """
         if np.isnan(self._msre):
             self._msre = np.nanmean(self._df['error'] ** 2 / self._df['val'] ** 2)
         return self._msre
 
     @property
     def rmse(self):
+        """
+        RMSE (Root Mean Squared Error) is the square root of the average of the squared differences between the true
+         and predicted values
+        """
         return np.sqrt(self.mse)
 
     @property
     def rmsre(self):
+        """
+        RMSE (Root Mean Squared Relative Error) is the square root of the average of the squared differences between
+        the true and predicted values relative to the true values
+        """
         return np.sqrt(self.msre)
 
     @property
     def maxe(self):
+        """
+        Max Error is the maximum residual error, a metric that captures the worst case error between the predicted
+         values and the true values.
+        """
         if np.isnan(self._maxe):
             self._maxe = np.nanmax(np.abs(self._df['error']))
         return self._maxe
 
     @property
     def maxre(self):
+        """
+        Max Relative Error is the maximum residual error, a metric that captures the worst case error between the
+         predicted values and the true values relative to the true values.
+        """
         if np.isnan(self._maxre):
             self._maxre = np.nanmax(np.abs(self._df['relative_error']))
         return self._maxre
 
     @property
     def covariance(self):
+        """
+        Covariance is a measure of the joint variability of two variables.
+        Return the sample covariance.
+        """
         if np.isnan(self._covariance):
             self._covariance = statistics.covariance(self._sim, self._val)
         return self._covariance
 
     @property
     def correlation(self):
+        """
+        Pearson's correlation coefficient. Return values between -1 and +1.
+        It measures the strength and direction of the linear relationship, where +1 means very strong, positive linear
+         relationship, -1 very strong, negative linear relationship, and 0 no linear relationship.
+        """
         if np.isnan(self._correlation):
             self._correlation = statistics.correlation(self._sim, self._val)
         return self._correlation
 
     @property
     def r2(self):
+        """
+        R squared (Coefficient of determination), is the proportion of the variation in the dependent variable that is
+         predictable from the independent variable(s).
+        As such variance is dataset dependent, may not be meaningfully comparable across different datasets. Best
+         possible score is 1.0 and it can be negative (because the model can be arbitrarily worse). A constant model
+         that always predicts the expected (average) value of y, disregarding the input features, would get a score
+         of 0.0.
+        """
         if np.isnan(self._r2):
             self._r2 = metrics.r2_score(self._sim, self._val)
         return self._r2
 
     @property
     def nse(self):
+        """
+        The Nash–Sutcliffe efficiency (NSE) is calculated as one minus the ratio of the error variance of the predicted
+         values divided by the variance of the true values. In the situation of a perfect model with an
+         estimation error variance equal to zero, the resulting Nash–Sutcliffe Efficiency equals 1 (NSE = 1)
+        """
         if np.isnan(self._nse):
             nse_num = np.nansum(self._df['error'] ** 2)
             nse_den = np.nansum((self._val - self.validation_mean) ** 2)
@@ -201,6 +272,9 @@ class StatsSummarizer:
 
     @property
     def kge(self):
+        """
+        The Kling-Gupta Efficiency  https://hess.copernicus.org/preprints/hess-2019-327/hess-2019-327.pdf
+        """
         if np.isnan(self._kge):
             r = self.correlation
             alfa = self.simulation_mean / self.validation_mean

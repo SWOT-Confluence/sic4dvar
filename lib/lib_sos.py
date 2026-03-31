@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -18,7 +16,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-
 import netCDF4 as nc
 import os
 from pathlib import Path
@@ -47,6 +44,7 @@ class SOS:
 
     def init_reach_ids_all(self, reach_ids_list=[]):
         reach_ids_per_continent = {}
+        '\n        reach_ids_sos = {}\n        for dataset in self.datasets:\n            name = dataset.getncattr("Name")\n            sos_rids = dataset["reaches"]["reach_id"][:].data\n            reach_ids_sos[name] = sos_rids\n\n        self.reach_ids_sos\n        '
         if np.array(reach_ids_list).size > 0:
             for code in reach_ids_list:
                 first_digit = str(code)[0]
@@ -125,13 +123,15 @@ def get_station_q_and_qt(sos_dataset, reach_id):
             else:
                 out_sos_q = station_q[:].ravel()
                 sos_qt = station_qt[:].ravel()
+            calibration_value = sos_dataset[station_name]['CAL'][station_reach_idx[0]][0]
             out_sos_date = daynum_to_date(sos_qt, '0001-01-01')
             break
         else:
             out_sos_q = np.ma.masked_values(np.array([]), value=-9999.0)
             out_sos_date = np.ma.masked_values(np.array([]), value=-9999.0)
             sos_qt = np.ma.masked_values(np.array([]), value=-9999.0)
-    return (out_sos_q, out_sos_date, sos_qt)
+            calibration_value = np.nan
+    return (out_sos_q, out_sos_date, sos_qt, calibration_value)
 
 def main():
     sos_dataset = nc.Dataset('/home/ccazals/Utils/SOS/v16d/unconstrained/eu_sword_v16d_SOS_priors.nc')

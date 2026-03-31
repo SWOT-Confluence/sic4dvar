@@ -1,37 +1,21 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-SIC4DVAR-LC
-Copyright (C) 2025 INRAE
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-"""
+import logging
 from warnings import simplefilter
 simplefilter(action='ignore', category=DeprecationWarning)
+import numpy as np
 import pandas as pd
 import scipy
 import sic4dvar_params as params
-from sic4dvar_algos.algo5 import *
-from sic4dvar_algos.algo3 import *
-from sic4dvar_functions.sic4dvar_helper_functions import get_weighted_q_data, correlation_nodes, build_output_q_masked_array
-from sic4dvar_functions.sic4dvar_calculations import compute_bb, verify_name_length
-from sic4dvar_modules.sic4dvar_compute_slope_and_bathymetry import bathymetry_computation, call_func_APR, slope_computation
-from lib.lib_swot_obs import get_flag_dict_from_config, filter_swot_obs_on_quality
 from lib.lib_dates import get_swot_dates, seconds_to_date_old
+from lib.lib_swot_obs import filter_swot_obs_on_quality, get_flag_dict_from_config
+from sic4dvar_algos.algo3 import *
+from sic4dvar_algos.algo5 import *
+from sic4dvar_functions.sic4dvar_calculations import compute_bb, verify_name_length
+from sic4dvar_functions.sic4dvar_helper_functions import build_output_q_masked_array, correlation_nodes, get_weighted_q_data
+from sic4dvar_modules.sic4dvar_compute_slope_and_bathymetry import bathymetry_computation, call_func_APR, slope_computation
 
 def check_reach_data_SET(sic4dvar_dict, iR=0):
+    """Returns true for if data has passed a check and false if not.
+    """
     sic4dvar_dict['output']['q_algo31_masked'] = deepcopy(sic4dvar_dict['output']['q_algo31'][sic4dvar_dict['list_to_keep']])
     reach = dict()
     if sic4dvar_dict['param_dict']['run_type'] == 'seq':
@@ -60,15 +44,14 @@ def check_reach_data_SET(sic4dvar_dict, iR=0):
         indices_to_mask = []
         keys = ['q_algo31', 'dA', 'w', 's']
         for key in keys:
-            print('KEY:', key)
             if key == 'q_algo31':
                 data_mask = []
                 for i in range(0, len(sic4dvar_dict['output'][key])):
-                    data_mask.append(calc.check_na(sic4dvar_dict['output'][key][i]))
+                    data_mask.append(check_na(sic4dvar_dict['output'][key][i]))
             else:
                 data_mask = []
                 for i in range(0, len(reach[key][iR])):
-                    data_mask.append(calc.check_na(reach[key][iR][i]))
+                    data_mask.append(check_na(reach[key][iR][i]))
             index_to_mask = np.where(np.array(data_mask) == True)
             indices_to_mask.append(index_to_mask)
         indices_to_mask = np.concatenate([arr[0] for arr in indices_to_mask])
@@ -76,7 +59,6 @@ def check_reach_data_SET(sic4dvar_dict, iR=0):
         sic4dvar_dict['removed_indices'] = indices_to_mask
         if indices_to_mask.size > 0:
             mask = np.ones(len(sic4dvar_dict['output']['q_algo31']), dtype=bool)
-            print('mask:', mask)
             mask[indices_to_mask] = False
             sic4dvar_dict['output']['q_algo31_masked'] = sic4dvar_dict['output']['q_algo31'][mask]
             reach['dA'][iR] = reach['dA'][iR][mask]
@@ -87,20 +69,20 @@ def check_reach_data_SET(sic4dvar_dict, iR=0):
                 full_nan = 0
                 for t in range(0, len(sic4dvar_dict['output']['q_algo31_masked'])):
                     if not key == 'q_algo31_masked':
-                        if calc.check_na(reach[key][iR][t]):
+                        if check_na(reach[key][iR][t]):
                             full_nan += 1
-                    elif calc.check_na(sic4dvar_dict['output'][key][t]):
+                    elif check_na(sic4dvar_dict['output'][key][t]):
                         full_nan += 1
                 if full_nan == len(sic4dvar_dict['output']['q_algo31_masked']):
                     output(reach['dA'][iR], reach['w'][iR], reach['s'][iR])
                     return False
-        print('q_algo31_masked:', sic4dvar_dict['output']['q_algo31_masked'], len(sic4dvar_dict['output']['q_algo31_masked']))
         if len(sic4dvar_dict['output']['q_algo31_masked']) < sic4dvar_dict['param_dict']['min_obs']:
             logging.info('Not enough timestamps to process with algo5!')
             output(reach['dA'][iR], reach['w'][iR], reach['s'][iR])
             return False
     OUTLOG = []
     for ind in range(len(reach['w'][iR])):
+        "\n        if params.cython_version:\n            if not cy.check_suitability(abs(sic4dvar_dict['filtered_data']['reach_dA'][iR].min())*1.5,sic4dvar_dict['filtered_data']['reach_dA'][iR][ind], sic4dvar_dict['filtered_data']['reach_s'][iR][ind], 0.1, sic4dvar_dict['filtered_data']['reach_w'][iR][ind]):\n                OUTLOG += [True]\n            else:\n                OUTLOG +=[False]\n        "
         if not calc.check_suitability(0.1, abs(reach['dA'][iR].min()) * 1.5, reach['dA'][iR][ind], reach['w'][iR][ind], reach['s'][iR][ind]):
             OUTLOG += [True]
         else:
@@ -155,7 +137,6 @@ def launch_algo5(sic4dvar_dict, NBR_REACHES):
                 sic4dvar_dict['output']['q_algo5'] = algo5_fill_removed_data(sic4dvar_dict['output']['q_algo5'], sic4dvar_dict['removed_indices'], len(sic4dvar_dict['filtered_data']['node_z'][0]))
                 sic4dvar_dict['output']['q_algo5'] = build_output_q_masked_array(sic4dvar_dict, 'q_algo5')
                 sic4dvar_dict['output']['q_algo5_all'] += [sic4dvar_dict['output']['q_algo5']]
-            sic4dvar_dict['intermediates_values']['q_mm'] = sic4dvar_dict['output']['q_algo5']
         else:
             sic4dvar_dict['output']['q_algo31'] = build_output_q_masked_array(sic4dvar_dict, 'q_algo31')
             logging.warning('Not enough REACH data found to process reach.')

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -18,16 +16,70 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-
 import numpy as np
 from sic4dvar_functions import sic4dvar_calculations as calc
 from pathlib import Path
-from sic4dvar_functions.sic4dvar_calculations import verify_name_length
+from sic4dvar_functions.sic4dvar_calculations import verify_name_length, fnc_APR
 from sic4dvar_functions.sic4dvar_helper_functions import *
+from sic4dvar_functions.sic4dvar_gnuplot_save import gnuplot_save_tables, gnuplot_save_slope
 from lib.lib_verif import check_na
+from sic4dvar_modules.sic4dvar_compute_slope_and_bathymetry import call_func_APR
 import math
 
-def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, node_z_ini, node_x, last_node_for_integral, bathymetry_array, param_dict, reach_id='', reach_t=[], bb=9999.0, reliability='', Qsdev=0.0, last_time_instant=-9999.0, input_data=[], time_indexes_to_keep=[]):
+def modified_manning_integrated(node_xr, node_yr, node_a, node_p, Wmean, last_node_for_integral, Zb2, ZB_update, Zb, t, node_x, SLOPEM1, ZM=1.0, KMI=1.0, option_recompute_area=False, sic4dvar_dict=[]):
+    SS1 = 0.0
+    tmp_R_array = []
+    for n in range(last_node_for_integral):
+        Zmin, Wmin = (np.nanmin(node_yr[n]), np.nanmin(node_xr[n]))
+        if Wmin == 0:
+            Wmin = 1.0
+        if t == 0:
+            Zb[n] = node_yr[n][0] + Zb2 + ZB_update * (Wmean / Wmin)
+        Z1 = node_yr[n][0]
+        W1 = node_xr[n][0]
+        if Zmin != Z1:
+            pass
+        if Wmin != W1:
+            pass
+        if Wmin == 0 or check_na(Wmin):
+            pass
+        if W1 == 0:
+            pass
+        if option_recompute_area:
+            node_a[n], node_p[n], _, _ = fnc_APR([sic4dvar_dict['filtered_data']['node_z'][n, t] * ZM], node_xr[n], node_yr[n])
+        A1 = node_a[n][t]
+        P1 = node_p[n][t]
+        A0 = W1 * (Z1 - Zb[n])
+        if check_na(A0):
+            pass
+        P0 = 2 * (Z1 - Zb[n])
+        AA = A0 + A1
+        PP = P0 + P1
+        if AA < 0:
+            logging.info('Area (AA) must be > 0 !')
+        if PP < 0:
+            logging.info('Perimeter (PP) must be > 0 !')
+        R = AA / PP
+        tmp_R_array.append(R)
+        QMi2i3 = AA * math.pow(R, 2.0 / 3.0)
+        if n == 0:
+            QM0 = QMi2i3
+        else:
+            if QM0 <= 0 or QMi2i3 <= 0:
+                pass
+            if QM0 > 0 and QMi2i3 > 0:
+                SS1 += abs(node_x[n] - node_x[n - 1]) * (math.pow(QM0, -2) + math.pow(QMi2i3, -2)) / 2.0
+            QM0 = QMi2i3
+    tmp_R_array = np.array(tmp_R_array)
+    tmp_R_array = np.mean(tmp_R_array)
+    Sl = SLOPEM1[t] * ZM
+    if Sl / abs(node_x[-1] - node_x[0]) < 1e-06:
+        Sl = abs(node_x[-1] - node_x[0]) * 1e-06
+    QMi2i3 = math.sqrt(Sl / SS1) * KMI
+    return (QMi2i3, SS1, Zb, tmp_R_array)
+
+def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, node_z_ini, node_x, last_node_for_integral, bathymetry_array, param_dict, reach_id='', reach_t=[], bb=9999.0, reliability='', Qsdev=0.0, last_time_instant=-9999.0, input_data=[], time_indexes_to_keep=[], ZM_array=[], friction_value=None):
+
     node_w_simp = apr_array['node_w_simp']
     node_a = apr_array['node_a']
     node_p = apr_array['node_p']
@@ -54,6 +106,7 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
                 if len(index_temp2) > 0:
                     nsobs -= len(index_temp2[0])
     Wmean, Qp, QM1, QM2 = ([], [], [], [])
+
     Wmin = 10000
     Wmean = []
     for i in range(len(node_w_simp)):
@@ -102,6 +155,11 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
         QM1 = Qwbm / Qp
         QM2 = Qwbm * Qp
         gamma = 1.0
+    if params.qsdev_activate:
+        if not check_na(params.shape03):
+            gamma = gamma_table(params.shape03)
+        else:
+            gamma = 1.0
     shapeP = []
     shapeP += [[(Qwbm * gamma - QM1) / (QM2 - QM1), params.shape03]]
     if params.qsdev_activate:
@@ -109,8 +167,14 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
         shapePs += [[(Qsdev - QM1s) / (QM2s - QM1s), params.shape03]]
     delayZB = (params.val1 - Zb2) / (Zb1 - Zb2)
     shapeP += [[delayZB, params.shape13]]
-    delayK = (params.val2 - Km1) / (Km2 - Km1)
-    shapeP += [[delayK, params.shape23]]
+    if friction_value is not None:
+        mean_K = friction_value
+        shape_K = params.known_friction_shape
+    else:
+        mean_K = params.val2
+        shape_K = params.shape23
+    delayK = (mean_K - Km1) / (Km2 - Km1)
+    shapeP += [[delayK, shape_K]]
     kDim = params.kDim
     q_pdf_table = calc.betad(int(param_dict['q_parametrization']), kDim, shapeP[0][0], shapeP[0][1])
     if params.qsdev_activate:
@@ -147,6 +211,7 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
         gnuplot_save_tables(q_pdf_table_saved, zb_pdf_table_saved, km_pdf_table_saved, output_dir.joinpath('tables'), 1)
     temp = []
     SS1_array = []
+
     if not valid_output:
         logging.debug('Slope is invalid. Stopping.')
         return (np.ones(node_z[0].shape[0]) * np.nan, 0)
@@ -196,6 +261,10 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
     for year_index in QMEAN_years_indexes:
         first_time_instant_array.append(year_index[0])
         last_time_instant_array.append(year_index[-1])
+    Zb_acc = 0.0
+    Kmi_acc = 0.0
+    R = 0.0
+    R_max = 0.0
     for i2 in range(1, I2m + 1):
         QMEAN_list = []
         year_index = 0
@@ -203,54 +272,21 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
         ZBA = Zb2 + (i2 - 1) * dZb
         Zb = np.zeros(len(node_z))
         temp_ss1_array = []
+        ZB_update = (i2 - 1) * dZb
+        if params.use_zb_early_break:
+            if np.abs(ZB_update) > 2 * R_max:
+                logging.info('Early break: ZB_update > 2 * R_max;  i2: {}, ZB_update: {}, R_max: {}'.format(i2, ZB_update, R_max))
+                break
+        tmp_R_array = []
         for t in range(node_z[0].shape[0]):
             SS1 = 0.0
             temp_Q_t = []
-            for n in range(last_node_for_integral):
-                Zmin, Wmin = (np.nanmin(node_yr[n]), np.nanmin(node_xr[n]))
-                if Wmin == 0:
-                    Wmin = 1.0
-                if t == 0:
-                    Zb[n] = node_yr[n][0] + Zb2 + (i2 - 1) * dZb * (Wmean / Wmin)
-                Z1 = node_yr[n][0]
-                W1 = node_xr[n][0]
-                if Zmin != Z1:
-                    pass
-                if Wmin != W1:
-                    pass
-                if Wmin == 0 or check_na(Wmin):
-                    pass
-                if W1 == 0:
-                    pass
-                A1 = node_a[n][t]
-                P1 = node_p[n][t]
-                A0 = W1 * (Z1 - Zb[n])
-                if check_na(A0):
-                    pass
-                P0 = 2 * (Z1 - Zb[n])
-                AA = A0 + A1
-                PP = P0 + P1
-                if AA < 0:
-                    logging.info('Area (AA) must be > 0 !')
-                if PP < 0:
-                    logging.info('Perimeter (PP) must be > 0 !')
-                R = AA / PP
-                QMi2i3 = AA * math.pow(R, 2.0 / 3.0)
-                temp_Q_t.append(QMi2i3)
-                if n == 0:
-                    QM0 = QMi2i3
-                else:
-                    if QM0 <= 0 or QMi2i3 <= 0:
-                        pass
-                    if QM0 > 0 and QMi2i3 > 0:
-                        SS1 += abs(node_x[n] - node_x[n - 1]) * (math.pow(QM0, -2) + math.pow(QMi2i3, -2)) / 2.0
-                    QM0 = QMi2i3
-            temp_Q.append(temp_Q_t)
-            Sl = SLOPEM1[t]
-            if Sl / abs(node_x[-1] - node_x[0]) < 1e-06:
-                Sl = abs(node_x[-1] - node_x[0]) * 1e-06
-            temp_ss1_array.append(SS1)
-            QMi2i3 = math.sqrt(Sl / SS1)
+            if np.array(ZM_array).size > 0:
+                ZM = ZM_array[t]
+            else:
+                ZM = 1.0
+            QMi2i3, SS1, Zb, R_mean = modified_manning_integrated(node_xr, node_yr, node_a, node_p, Wmean, last_node_for_integral, Zb2, ZB_update, Zb, t, node_x, SLOPEM1, ZM=ZM, KMI=1.0, option_recompute_area=False)
+            tmp_R_array.append(R_mean)
             QMEAN_array_old[i2 - 1] += QMi2i3
             if t > first_time_instant_array[year_index] and t < last_time_instant_array[year_index]:
                 QMEAN_array2[i2 - 1] += (QMi2i3 + QMi2i3_0) / 2 * (reach_t[t] - reach_t[t - 1])
@@ -266,6 +302,10 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
             QMT_array[i2 - 1, t] = QMi2i3
             SS1_array.append(1 / SS1)
             QMi2i3_0 = QMi2i3
+        if i2 == 1:
+            tmp_R_array = np.array(tmp_R_array)
+            R = np.mean(tmp_R_array)
+            R_max = np.max(tmp_R_array)
         if param_dict['gnuplot_saving']:
             if not output_dir.is_dir():
                 output_dir.mkdir(parents=True, exist_ok=True)
@@ -278,17 +318,20 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
             QMEAN_list[m] /= time_scaling_array[m]
         if params.qsdev_activate:
             Qsdev = 0.0
+            time_scaling_sdev = 0.0
             for ist in range(1, node_z[0].shape[0]):
-                s0 = (QMT_array[i2 - 1, ist - 1] - QMEAN_array[i2 - 1]) ** 2
-                s1 = (QMT_array[i2 - 1, ist] - QMEAN_array[i2 - 1]) ** 2
+                s0 = (QMT_array[i2 - 1, ist - 1] - QMEAN_list[m]) ** 2
+                s1 = (QMT_array[i2 - 1, ist] - QMEAN_list[m]) ** 2
+                time_scaling_sdev += reach_t[ist] - reach_t[ist - 1]
                 Qsdev = Qsdev + (s0 + s1) / 2 * (reach_t[ist] - reach_t[ist - 1])
-            Qsdev = np.sqrt(Qsdev / time_scaling[i2 - 1])
+            Qsdev = np.sqrt(Qsdev / time_scaling_sdev)
         QMT_const_array = np.copy(QMT_array)
         trialps1_max = 0.0
         k_step = np.exp(1.0 / (I3m - 1) * np.log(Km2 / Km1))
         p_YMS_a1 = 0.0
         yarg_a1 = np.zeros(node_z[0].shape[0], dtype=np.float64)
-        Km_acc = 0.0
+        Kmi_acc2 = 0.0
+        Zb_acc2 = 0.0
         for i3 in range(1, I3m + 1):
             SS1_list = []
             Q_pdf_list = []
@@ -318,10 +361,11 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
             SS1 = QMEAN_array[i2 - 1] * Kmi3
             for m in range(0, len(QMEAN_list)):
                 SS1_list.append(QMEAN_list[m] * Kmi3)
-                if params.qsdev_option == 0:
-                    SS1_qs = Qsdev * Kmi3
-                elif params.qsdev_option == 1:
-                    SS1_qs = Qsdev / QMEAN_array[i2 - 1]
+                if params.qsdev_activate:
+                    if params.qsdev_option == 0:
+                        SS1_qs = Qsdev * Kmi3
+                    elif params.qsdev_option == 1:
+                        SS1_qs = Qsdev / QMEAN_list[m]
                 theta_list.append((SS1_list[m] - QM1) / (QM2 - QM1))
                 if params.qsdev_activate:
                     theta_qs = (SS1_qs - QM1s) / (QM2s - QM1s)
@@ -353,13 +397,13 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
             if not params.qsdev_activate:
                 Nbeta += Zb_pdf * Km_pdf * Q_pdf
             if params.qsdev_activate:
-                Nbeta += Zb_pdf * Km_pdf * Q_pdf * Qs_pdf
+                Nbeta += Zb_pdf * Km_pdf * (Q_pdf * Qs_pdf)
             if params.qsdev_activate:
-                trial_ps0 = Zb_pdf * Km_pdf * Q_pdf * Qs_pdf
+                trial_ps0 = Zb_pdf * Km_pdf * (Q_pdf * Qs_pdf)
             else:
                 trial_ps0 = Zb_pdf * Km_pdf * Q_pdf
             if params.qsdev_activate:
-                ss_a = Km_pdf * Q_pdf * Qs_pdf
+                ss_a = Km_pdf * (Q_pdf * Qs_pdf)
             else:
                 ss_a = Km_pdf * Q_pdf
             ss_b = Zb_pdf
@@ -369,9 +413,12 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
                 p_YMS_a1 += (ss_a + ss_a1) / 2.0 * (Kmi3 - Kmi3_0)
                 for t in range(0, len(node_z[0])):
                     yarg_a1[t] += (yarg1_a[t] * ss_a + yarg_a2[t] * ss_a1) / 2.0 * (Kmi3 - Kmi3_0)
+                Kmi_acc2 += (Kmi3 * ss_a + Kmi3_0 * ss_a1) / 2.0 * (Kmi3 - Kmi3_0)
+                Zb_acc2 += (ZBA * ss_a + ZBA2 * ss_a1) / 2.0 * (Kmi3 - Kmi3_0)
             ss_a1 = deepcopy(ss_a)
             yarg_a2 = deepcopy(yarg1_a)
             Kmi3_0 = deepcopy(Kmi3)
+            ZBA2 = deepcopy(ZBA)
             if params.V32:
                 NBS = len(node_z[:, :]) - 1
                 icost = 0.0
@@ -386,8 +433,10 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
                             icost += 0.0
                         else:
                             if params.useEXT:
+
                                 Z_SS, A_SS, P_SS, R_SS, cost = calc.compute_steady_state(NBS, NBT, node_xr, node_yr, node_z_ini[:, ij], node_x, Zb, Kmi3, [Q_sample[iis, ij]])
                             else:
+
                                 Z_SS, A_SS, P_SS, R_SS, cost = calc.compute_steady_state(NBS, NBT, node_xr, node_yr, node_z_ini[:, ij], node_x, Zb, Kmi3, [Q_sample[iis, ij]])
                             icost += cost
                 if Zb_pdf > 0.0 and Km_pdf > 0.0 and (Q_pdf > 0.0) and (icost > 0.0):
@@ -406,13 +455,17 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
                     if trial_ps0 / trialps1_max < 0.01:
                         break
         if i2 > 1:
-            p_YMS_a = p_YMS_a + (p_YMS_a1 * ss_b + ss_a2 * ss_b2) / 2.0 * -(ZBA - ZBA0)
+            p_YMS_a += (p_YMS_a1 * ss_b + ss_a2 * ss_b2) / 2.0 * -(ZBA - ZBA0)
             for t in range(0, len(node_z[0])):
                 QM[t] += (yarg_a1[t] * ss_b + yarg_a3[t] * ss_b2) / 2.0 * -(ZBA - ZBA0)
+            Zb_acc += (Zb_acc2 * ss_b + Zb_acc3 * ss_b2) / 2.0 * -(ZBA - ZBA0)
+            Kmi_acc += (Kmi_acc2 * ss_b + Kmi_acc3 * ss_b2) / 2.0 * -(ZBA - ZBA0)
         ss_a2 = deepcopy(p_YMS_a1)
         ss_b2 = deepcopy(ss_b)
         ZBA0 = deepcopy(ZBA)
         yarg_a3 = deepcopy(yarg_a1)
+        Zb_acc3 = deepcopy(Zb_acc2)
+        Kmi_acc3 = deepcopy(Kmi_acc2)
         temp_i3.append(i3)
         if params.a31_early_stop:
             if trialps1_max > trialps0_max:
@@ -422,6 +475,8 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
                     iexit = 1
             if i2 > 1 and iexit == 1:
                 break
+    Kmi_acc = Kmi_acc / p_YMS_a
+    Zb_acc = Zb_acc / p_YMS_a
     Q_min = QMT_array[0, :] * Km1
     Q_max = QMT_array[-1, :] * Km2
     Nbeta = p_YMS_a
@@ -497,4 +552,4 @@ def algo3(apr_array, Qwbm, params, SLOPEM1, valid_output, node_z, node_z_input, 
         plt.show()
         plt.clf()
         print(bug)
-    return (QM_masked, valid_output, reliability)
+    return (QM_masked, valid_output, reliability, Kmi_acc, Zb_acc)

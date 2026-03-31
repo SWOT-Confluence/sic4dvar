@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -18,11 +16,10 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-
 import logging
 import portalocker
 import os
-log_messages = {'1': '', '2': '', '102': 'JSON file not found.', '103': 'Run on only one reach. Stopping.', '104': 'No SOS file {sos_file} found for reach of reach id: {reach_id}', '105': 'Reaches ending in something different from 1 are not processed in set mode. Skipping reach {reach_id}', '501': 'no station is available for {reach_id}.', '502': 'After filtering dates, no time instant left to compute mean of q prior from stations.', '503': "No time instant available on the reach to use stations' data.", '504': 'No SWORD file {sword_file} found for reach of reach id: {reach_id}', '505': 'No SWOT file {swot_file} found for reach of reach id: {reach_id}', '506': 'Mean of q prior from stations is <= 0. Exiting.', '507': 'QWBM < 1, discarded.', '999': 'Error message not found.'}
+log_messages = {'1': '', '2': '', '102': 'JSON file not found.', '103': 'Run on only one reach. Stopping.', '104': 'No SOS file {sos_file} found for reach of reach id: {reach_id}', '105': 'Reaches ending in something different from 1 are not processed in set mode. Skipping reach {reach_id}', '502': 'After filtering dates, no time instant left to compute mean of q prior from stations.', '503': "No time instant available on the reach to use stations' data.", '504': 'No SWORD file {sword_file} found for reach of reach id: {reach_id}', '505': 'No SWOT file {swot_file} found for reach of reach id: {reach_id}', '506': 'Mean of q prior from stations is <= 0. Exiting.', '507': 'QWBM < 1, discarded.', '999': 'Error message not found.'}
 
 def call_error_message(error_code):
     try:
@@ -32,17 +29,13 @@ def call_error_message(error_code):
     return message
 
 def set_logger(param_dict, filename=None):
-    if param_dict['verbose']:
-        loglevel = logging.DEBUG
-    else:
-        loglevel = logging.ERROR
     logFormatter = logging.Formatter('%(asctime)s [%(levelname)-4.4s]  %(message)s')
     logger = logging.getLogger()
-    logger.setLevel(level=loglevel)
+    logger.setLevel(level=param_dict['log_level'])
     consoleHandler = logging.StreamHandler()
     consoleHandler.setFormatter(logFormatter)
     logger.addHandler(consoleHandler)
-    if param_dict['verbose']:
+    if param_dict['log_level'] in [logging.DEBUG, logging.INFO]:
         if os.path.exists(filename):
             os.remove(filename)
         fileHandler = logging.FileHandler(filename)
@@ -55,8 +48,7 @@ def close_logger(param_dict):
         logger.removeHandler(logger.handlers[0])
 
 def append_to_principal_log(param_dict, message):
-    print(message)
-    if param_dict['verbose']:
+    if param_dict['log_level'] in [logging.DEBUG, logging.INFO]:
         log_path = param_dict['log_path']
         if not log_path.parent.exists():
             os.makedirs(log_path.parent, exist_ok=True)

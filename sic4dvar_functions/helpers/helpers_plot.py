@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -17,6 +15,13 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+Created in September 2023
+by @Isadora Silva
+
+Last modified on April 18th 2024 at 07:00
+by @Isadora Silva
+
+@authors: Isadora Silva
 """
 import pathlib
 from typing import Iterable, Tuple
@@ -24,6 +29,43 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 def helper_plot_lines(xs: Iterable, ys: Iterable, show: bool=True, line_styles: Tuple=('-',), line_widths: Tuple=(1.5,), line_colors: Tuple=('black',), line_labels: Tuple=('main',), marker_styles: Tuple | None=None, marker_sizes: Tuple=(3.0,), marker_fill_colors: Tuple=('gray',), marker_edge_colors: Tuple=('gray',), title: str='', x_axis_title: str='', y_axis_title: str='', x_lim: Iterable | None=None, y_lim: Iterable | None=None, fig_width: int=5, fig_height: int=5, add_text_bottom_right: str='', add_text_bottom_left: str='', add_legend: bool=False, legend_title: str='Legend', legend_loc: str='upper center', legend_bbox_to_anchor: tuple=(1.15, 1.02), legend_ncols: int=1, output_file: str | bytes | pathlib.PurePath | None=None):
+    """
+
+    Parameters
+    ----------
+    xs
+    ys
+    show
+    line_styles
+    line_widths
+    line_colors
+    line_labels
+    marker_styles: Tuple | None = None,
+    marker_sizes: Tuple = (3.,),
+    marker_fill_colors: Tuple = ('gray',),
+    marker_edge_colors: Tuple = ('gray',),
+    title
+    x_axis_title
+    y_axis_title
+    x_lim
+    y_lim
+    fig_width
+    fig_height
+    add_text_bottom_right
+    add_text_bottom_left
+    add_legend
+    legend_title
+    legend_loc : str
+        'upper right', 'upper left', 'lower left', 'lower right', 'right', 'center left', 'center right',
+         'lower center', 'upper center', 'center'
+    legend_bbox_to_anchor
+    legend_ncols
+    output_file
+
+    Returns
+    -------
+
+    """
     if output_file:
         output_file = pathlib.Path(output_file).with_suffix('.png')
         if not output_file.parent.exists():
@@ -96,6 +138,35 @@ def helper_plot_lines(xs: Iterable, ys: Iterable, show: bool=True, line_styles: 
         plt.close()
 
 def helper_plot_scatter(xs: Iterable, ys: Iterable, show: bool=True, marker_styles: Tuple='o', marker_sizes: Tuple=(5.0,), marker_fill_colors: Tuple=('gray',), marker_edge_colors: Tuple=('gray',), marker_transparency: Tuple=(10.0,), marker_labels: Tuple=('main',), title: str='', x_axis_title: str='', y_axis_title: str='', x_lim: Iterable | None=None, y_lim: Iterable | None=None, fig_width: int=5, fig_height: int=5, add_text_bottom_right: str='', add_text_bottom_left: str='', add_identity_line: bool=False, add_legend: bool=False, legend_title: str='Legend', legend_loc: str='upper center', legend_bbox_to_anchor: tuple=(1.15, 1.02), legend_ncols: int=1, output_file: str | bytes | pathlib.PurePath | None=None):
+    """
+
+    Parameters
+    ----------
+    xs: Iterable,
+    ys: Iterable,
+    show: bool
+    marker_styles: Tuple
+    marker_sizes: Tuple
+    marker_fill_colors: Tuple
+    marker_edge_colors: Tuple
+    marker_labels: Tuple
+    title: str
+    x_axis_title: str
+    y_axis_title: str
+    x_lim: Iterable | None
+    y_lim: Iterable | None
+    fig_width: int
+    fig_height: int
+    add_text_bottom_right: str
+    add_text_bottom_left: str
+    add_identity_line: bool
+    add_legend: bool
+    legend_title: str
+    legend_loc: str
+    legend_bbox_to_anchor: tuple
+    legend_ncols: int
+    output_file: str | bytes | pathlib.PurePath | None
+    """
     if output_file:
         output_file = pathlib.Path(output_file).with_suffix('.png')
         if not output_file.parent.exists():

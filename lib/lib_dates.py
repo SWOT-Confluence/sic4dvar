@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -18,12 +16,12 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-
-import netCDF4 as nc
+import logging
 from datetime import datetime, timedelta
+import netCDF4 as nc
 import numpy as np
-import pandas as pd
 import numpy.ma as ma
+import pandas as pd
 from lib.lib_verif import check_na
 
 def get_swot_dates(node_t):
@@ -168,6 +166,30 @@ def count_days_in_months(start_date, end_date, days_in_months):
             days_in_months[year_month] = days_in_month
         current_date = period_end_date + timedelta(days=1)
     return days_in_months
+SWOT_EPOCH = datetime(2000, 1, 1)
+
+def seconds_to_time_str(time_seconds, chartime_len=20):
+    """Convert array of seconds since 2000-01-01 to array of ISO time strings.
+    
+    Args:
+        time_seconds: numpy array of seconds since 2000-01-01 (can be masked array)
+        chartime_len: length of char array (default 20 for YYYY-MM-DDThh:mm:ssZ)
+        
+    Returns:
+        numpy array of shape (nt, chartime_len) with S1 dtype for NetCDF time_str variable
+    """
+    time_arr = np.atleast_1d(time_seconds)
+    if ma.isMaskedArray(time_arr):
+        time_arr = time_arr.filled(np.nan)
+    time_strings = []
+    for t in time_arr:
+        if np.isnan(t) or t < 0:
+            time_strings.append('no_data'.ljust(chartime_len)[:chartime_len])
+        else:
+            dt = SWOT_EPOCH + timedelta(seconds=float(t))
+            time_strings.append(dt.strftime('%Y-%m-%dT%H:%M:%SZ'))
+    str_array = np.array(time_strings, dtype=f'S{chartime_len}')
+    return str_array.view('S1').reshape(len(time_strings), chartime_len)
 
 def main():
     time = 783925729.161

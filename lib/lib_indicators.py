@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -18,7 +16,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-
 from scipy.stats import spearmanr, pearsonr, rankdata
 import numpy as np
 
@@ -100,6 +97,23 @@ def extrema_low(y_true, y_pred, time_frequency):
     y_true_percent_values_list = [np.percentile(y_true, p) for p in percen_list]
     y_pred_percent_values_list = [np.percentile(y_pred, p) for p in percen_list]
     return (np.mean(y_true_percent_values_list) - np.mean(y_pred_percent_values_list)) / np.mean(y_true_percent_values_list)
+
+def log_cosh_loss(y_true, y_pred, bias=0.0):
+    """Calculates Log-Cosh Loss."""
+    error = y_pred - y_true - bias
+    return np.mean(np.log(np.cosh(error)))
+
+def tweedie_loss(y_true, y_pred, power):
+    """Calculates Tweedie loss."""
+    if power <= 0 or power >= 1:
+        if power == 0:
+            return (y_true - y_pred) ** 2
+        elif power == 1:
+            return 2 * (y_true * np.log(y_true / y_pred) - (y_true - y_pred))
+        elif power == 2:
+            return 2 * (np.log(y_pred / y_true) + y_true / y_pred - 1)
+    print('Tweedie for 1 < p < 2 is complex; use a library.')
+    return None
 
 def compute_all_indicators_from_predict_true(y_true, y_pred, time_frequency=np.array([])):
     indicators = {}

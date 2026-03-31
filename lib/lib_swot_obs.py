@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -18,10 +16,9 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-
 import logging
-import numpy as np
 import xml.etree.ElementTree as ET
+import numpy as np
 swot_quality_flags_list = ['xovr_cal_q', 'node_q', 'node_q_b', 'reach_q_b', 'dark_frac', 'obs_frac', 'partial_f', 'wse_r_u', 'ice_clim_f']
 swot_xovr_cal_q_labels = {0: 'good', 1: 'suspect', 2: 'bad'}
 swot_node_q_labels = {0: 'good', 1: 'suspect', 2: 'degraded', 3: 'bad'}
@@ -34,9 +31,21 @@ swot_common_q_b_bit_labels = {1: 'classification_qual_suspect', 2: 'geolocation_
 swot_q_b_bit_labels = {'node': {0: 'sig0_qual_suspect', 4: 'blocking_width_suspect', 9: 'few_sig0_observations', 23: 'wse_outlier', 24: 'wse_bad', 25: 'no_sig0_observations'}, 'reach': {15: 'partially observed', 25: 'below min fit points'}}
 swot_q_b_bit_labels['node'].update(swot_common_q_b_bit_labels)
 swot_q_b_bit_labels['reach'].update(swot_common_q_b_bit_labels)
-swotfile_var_type = {'wse_r_u': 'float64', 'layovr_val': 'float64', 'node_dist': 'float64', 'xtrk_dist': 'float64', 'flow_angle': 'float64', 'slope_r_u': 'float64', 'slope2_r_u': 'float64', 'reach_q_b': 'float64'}
+swot_q_b_bit_labels['node'] = dict(sorted(swot_q_b_bit_labels['node'].items()))
+swot_q_b_bit_labels['reach'] = dict(sorted(swot_q_b_bit_labels['reach'].items()))
+swotfile_var_type = {'wse_r_u': 'float64', 'xtrk_dist': 'float64', 'slope_r_u': 'float64', 'slope2_r_u': 'float64', 'reach_q_b': 'float64'}
 
 def remove_outliers_tukey(data, threshold=1.5):
+    """
+    Removes outliers from a dataset based on Tukey's IQR method.
+    
+    Parameters:
+        data (array-like): Input data (1D list or NumPy array).
+        threshold (float): Multiplication factor for the IQR (default is 1.5).
+    
+    Returns:
+        np.ndarray: Filtered data without outliers.
+    """
     data = np.array(data)
     Q1 = np.nanpercentile(data, 25)
     Q3 = np.nanpercentile(data, 75)
@@ -58,20 +67,10 @@ def filter_swot_obs_on_quality(swot_dict_arrays, val_swot_q_flag):
             var_mask = np.greater(swot_dict_arrays['node']['dark_frac'], q_val).filled(np.nan)
         elif q_var == 'n_good_pix_min':
             var_mask = np.less(swot_dict_arrays['node']['n_good_pix'], q_val).filled(np.nan)
-        elif q_var == 'layovr_val_min':
-            var_mask = np.less(swot_dict_arrays['node']['layovr_val'], q_val).filled(np.nan)
-        elif q_var == 'layovr_val_max':
-            var_mask = np.greater(swot_dict_arrays['node']['layovr_val'], q_val).filled(np.nan)
-        elif q_var == 'node_dist_max':
-            var_mask = np.greater(swot_dict_arrays['node']['node_dist'], q_val).filled(np.nan)
         elif q_var == 'wse_u_max':
             var_mask = np.greater(swot_dict_arrays['node']['wse_u'], q_val).filled(np.nan)
         elif q_var == 'width_u_max':
             var_mask = np.greater(swot_dict_arrays['node']['width_u'], q_val).filled(np.nan)
-        elif q_var == 'flow_angle_min':
-            var_mask = np.less(swot_dict_arrays['node']['flow_angle'], q_val).filled(np.nan)
-        elif q_var == 'flow_angle_max':
-            var_mask = np.greater(swot_dict_arrays['node']['flow_angle'], q_val).filled(np.nan)
         elif q_var == 'node_q':
             var_mask = ~np.isin(swot_dict_arrays['node']['node_q'], q_val)
         elif q_var == 'node_q_b':
@@ -130,6 +129,7 @@ def filter_swot_obs_on_quality(swot_dict_arrays, val_swot_q_flag):
         else:
             logging.info(f'WARNING : unable to filter reach using var {q_var}, not found in SWOT file or empty ... skip')
             var_mask = np.zeros((1, swot_dict_arrays['nt']))
+        '\n        elif q_var == "tukey":\n            tukey_number = q_val\n            index_non_nan = np.where(check_na_vector(reach_w)==False)\n            tukey_res = remove_outliers_tukey(reach_w[index_non_nan],tukey_number)\n            reach_w[index_non_nan] = tukey_res\n        '
         var_mask = np.tile(var_mask, (swot_dict_arrays['nx'], 1))
         node_level_values_to_remove_mask = np.logical_or(node_level_values_to_remove_mask, var_mask)
         logging.info(f'Filtering SWOT Obs reach with var {q_var} with values {q_val} : {np.sum(var_mask)} values to remove, {np.sum(~node_level_values_to_remove_mask)} left')

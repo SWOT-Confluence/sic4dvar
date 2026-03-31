@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -17,8 +15,14 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+Created on September 18th 2023 at 19:00
+by @Isadora Silva
 
+Last modified on May 20th 2024 at 22:00
+by @Isadora Silva
+
+@authors: Isadora Silva
+"""
 import copy
 import pathlib
 from typing import Tuple
@@ -27,6 +31,23 @@ import numpy as np
 from sic4dvar_functions.helpers.helpers_arrays import masked_array_to_nan_array, array_as_col_vector
 
 def get_q_prior_from_sos_file(reach_ids: Tuple[str | int, ...], sos_file_path: str | pathlib.PurePath, clean_run: bool=False) -> dict:
+    """
+    Read the discharge information from SWORD of Science netcdf file and return a dictionary with the unmasked arrays.
+
+    Parameters
+    ----------
+    reach_ids : Tuple[str, ...]
+        The reach ids to be read from the SWORD file
+    sos_file_path : str | pathlib.PurePath
+        The path to the SWORD of Science netCDF file
+    clean_run
+        Whether to print statements while running this function
+
+    Returns
+    -------
+    dict
+        Dictionary with the unmasked arrays. Keys are "min_q", "mean_q" and "max_q".
+    """
     msg = 'loading discharge data from SWORD of Science'
     if not clean_run:
         print(msg)

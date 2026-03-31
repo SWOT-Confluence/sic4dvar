@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -17,8 +15,14 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+Created on September 18th 2023 at 19:00
+by @Isadora Silva
 
+Last modified on February 23rd 2024 at 18:00
+by @Isadora Silva
+
+@authors: Isadora Silva
+"""
 import pathlib
 from datetime import datetime
 from typing import Literal, Tuple
@@ -26,10 +30,88 @@ import numpy as np
 import pandas as pd
 from sic4dvar_classes.sic4dvar_0_defaults import SIC4DVarLowCostDefaults
 from sic4dvar_low_cost.sic4dvar_functions.helpers.helpers_arrays import array_as_row_vector, array_as_col_vector, datetime_array_set_to_freq_and_filter
-from sic4dvar_low_cost.sic4dvar_functions.q558 import D
+from sic4dvar_low_cost.sic4dvar_functions.j211 import D
 from sic4dvar_low_cost.sic4dvar_functions.io.reader_sword import get_vars_from_sword_file
 
 def get_array_dict_from_csv_files(reach_ids: Tuple[str, ...], node_z_file_pattern: str | pathlib.PurePath | None=None, node_z_u_file_pattern: str | pathlib.PurePath | None=None, node_w_file_pattern: str | pathlib.PurePath | None=None, node_w_u_file_pattern: str | pathlib.PurePath | None=None, reach_data_file_pattern: str | pathlib.PurePath | None=None, dist_col: str | None=None, node_id_col: str | None=None, reach_time_col: str | None=None, reach_s_col: str | None=None, reach_w_col: str | None=None, reach_da_col: str | None=None, miss_node_in_sword: str | None=None, no_data_value: float | str | int | None=None, dist_dif_obs: int | None=None, sword_file_path: str | pathlib.PurePath | None=None, x_ref: Literal['node_length', 'dist_out']='node_length', add_facc: bool=False, ref_datetime: datetime=SIC4DVarLowCostDefaults().def_ref_datetime, freq_datetime: str=SIC4DVarLowCostDefaults().def_freq_datetime, dup_datetime: Literal['drop', 'raise']='raise', start_datetime: datetime | float | int | None=None, end_datetime: datetime | float | int | None=None, clean_run: bool=False, debug_mode: bool=False):
+    """
+    One csv file per reach per node variable.
+    In node variables (w) and (z): columns represent time instances, rows represent distances/node_ids. The distance
+     can be found with the column dist_col, which is set as the index.
+    Time must be in seconds from reference!
+
+    One csv file per reach variables blended into one file.
+    Columns are reach_s_col, reach_w_col, reach_da_col, rows are time instances. Time instances must match the ones
+     of node elevation file.
+
+    Raise KeyError in case node_w file for the same reach does not match the node_z_file (same time and dists).
+
+    ATTENTION: Output is not sorted!
+
+    Parameters
+    ----------
+    reach_ids : Tuple[str | int, ...]
+        The reach ids to that are present in the csv file name.
+    node_z_file_pattern : str | pathlib.PurePath
+        the pattern of the file that contains the node water surface elevations.
+         It is formatted according to reach_ids.
+    node_z_u_file_pattern : str | pathlib.PurePath | None
+        the pattern of the file that contains the node water surface elevation uncertainties.
+         It is formatted according to reach_ids.
+    node_w_file_pattern : str | pathlib.PurePath | None
+        the pattern of the file that contains the node widths.
+         It is formatted according to reach_ids.
+    node_w_u_file_pattern : str | pathlib.PurePath | None
+        the pattern of the file that contains the node width uncertainties.
+         It is formatted according to reach_ids.
+    reach_data_file_pattern : str | pathlib.PurePath | None
+        the pattern of the file that contains the reach variables (da, s, w)
+    dist_col : str | None
+        the name of the column that contains the distance. If not defined, extract it from the SWORD file.
+    node_id_col : str | None
+        the name of the column that contains the node_ids.
+         Must be defined if distance is extracted from the SWORD file.
+    reach_time_col : str | None
+        in the reach file, the name of the column that contains the time
+    reach_s_col : str | None
+        in the reach file, the name of the column that contains the slope
+    reach_w_col : str | None
+        in the reach file, the name of the column that contains the width
+    reach_da_col : str | None
+        in the reach file, the name of the column that contains the chagne in area
+    miss_node_in_sword: str | None
+        What do do in case a node exists in the csv files but not in SWORD. If None, raise KeyError, else, linear
+         interpolate the distance.
+    no_data_value : float | str | int | None
+        the no data value in the csv file
+    dist_dif_obs : int | None
+        distance difference between the observations so they are considered at the same distance when loading
+         the data
+    sword_file_path : str | pathlib.PurePath | None
+        The path to the SWORD netCDF file
+    x_ref : Literal["node_length", "dist_out"]
+        The reference for the distance.
+         Due to inconsistencies with the SWORD, it is recommended to use "node_length".
+    add_facc : bool
+        whether to load facc from SWORD
+    ref_datetime : datetime
+        The reference datetime to convert between dates to seconds from reference.
+    freq_datetime : datetime
+        The time of observations is approximated every freq when loading the data.
+        Multiplier and str "D", "h", "min", "s". E.g.: "3h", "D". Set as "" to skip this.
+        https://pandas.pydata.org/docs/user_guide/timeseries.html#timeseries-offset-aliases
+    dup_datetime: Literal["drop", "raise"]
+        What to do when the data is assigned to the same datetime. Either "drop", "raise": "drop" drops all
+         occurrences except the first one; "raise" raises IndexError.
+    start_datetime: datetime | float | int | None
+        start datetime for filtering the data (>=). Either as datetime or as seconds from reference (float or int).
+    end_datetime: datetime | float | int | None
+        end datetime for filtering the data (<=). Either as datetime or as seconds from reference (float or int).
+    clean_run : bool
+        Whether to print statements while running this class
+    debug_mode : bool
+        Whether to print debug statements while running this class
+    """
     if clean_run:
         debug_mode = False
     if debug_mode:

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -17,8 +15,14 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+Created in September 2023
+by @Isadora Silva
 
+Last modified on March 24th 2024 at 18:00
+by @Isadora Silva
+
+@authors: Isadora Silva
+"""
 import itertools
 import math
 import os
@@ -35,43 +39,36 @@ try:
 except ImportError:
 
     def pairwise(iterable):
+        """ pairwise('ABCDEFG') --> AB BC CD DE EF FG """
         a, b = itertools.tee(iterable)
         next(b, None)
         return zip(a, b)
 
 def triowise(iterable):
+    """ triowise('ABCDEFGH') --> ABC BCD CDE DEF EFG FGH """
     b, c = itertools.tee(iterable[1:])
     next(c, None)
     return zip(iterable, b, c)
 
-def check_na(value):
-    try:
-        if pd.isna(value):
-            return True
-    except TypeError:
-        pass
-    try:
-        if np.isnan(value):
-            return True
-    except TypeError:
-        pass
-    try:
-        if value.mask:
-            return True
-    except AttributeError:
-        pass
-    try:
-        if value.is_empty:
-            return True
-    except AttributeError:
-        pass
-    if value is None:
-        return True
-    if value == '':
-        return True
-    return False
-
 def check_output_file_exists(output_file: str | bytes | pathlib.PurePath, rewrite: bool=False, clean_run: bool=False) -> pathlib.PurePath:
+    """
+    Check whether the output file exists. Create the parent directories if they don't exist. Raise FileExistsError in
+     case file exists and rewrite is False
+
+    Parameters
+    ----------
+    output_file : str | bytes | pathlib.PurePath
+        path to the output file.
+    rewrite :
+        whether to rewrite the file if it already exists.
+    clean_run :
+        whether to print statements while running this function.
+
+    Returns
+    ---------
+    pathlib.PurePath
+        path to the output file
+    """
     output_file = pathlib.Path(output_file)
     if not output_file.exists():
         if not output_file.parent.exists():
@@ -97,6 +94,7 @@ def _plot_name_helper(plot_output_file_dir, plot_output_file_basename, plot_outp
     return out_f
 
 def split_freq_datetime_string(freq_datetime: str) -> Tuple[int | None, str]:
+    """ split a datetime frequency into it's integer and string component. E.g.: 30min -> 30, min"""
     if not freq_datetime:
         freq_datetime = '1s'
     match = re.match('([0-9]+)([a-z]+)', freq_datetime, re.I)
@@ -124,6 +122,21 @@ class PdTimeDeltaFreq:
         return self._freq_dt_str
 
 def dt_as_pd_datetime(dt: float | int | datetime | np.datetime64 | pd.Timestamp, ref_datetime: datetime | np.datetime64 | pd.Timestamp=sic_def.def_ref_datetime, pd_freq: str | None=None) -> pd.Timestamp:
+    """
+    Parameters
+    ----------
+    dt : float | int | datetime | np.datetime64 | pd.Timestamp
+        The date, either as datetime object or as seconds from reference datetime
+    ref_datetime : datetime | np.datetime64 | pd.Timestamp
+        the reference datetime to go from seconds from reference to dates
+    pd_freq : str | None
+        The pandas reference
+
+    Returns
+    -------
+    pd.Timestamp
+        The datetime as a pandas timestamp
+    """
     if dt is not None:
         try:
             float(dt)
@@ -136,10 +149,79 @@ def dt_as_pd_datetime(dt: float | int | datetime | np.datetime64 | pd.Timestamp,
     return dt
 
 def compute_teta(x1: float, y1: float, x2: float, y2: float, x0: float=None, y0: float=None, degrees: bool=False, raise_undetermined_form_error: bool=True, float_atol: float=sic_def.def_float_atol, force_positive: bool=False, clean_run: bool=False) -> float:
+    """
+    Parameters
+    ----------
+        x1 : float
+        The x coordinate of the first point.
+    y1 : float
+        The y coordinate of the first point.
+    x2 : float
+        The x coordinate of the second point.
+    y2 : float
+        The y coordinate of the second point.
+    x0 : float
+        The x coordinate of the zero point. Added option to have angles between segments.
+    y0 : float
+        The y coordinate of the zero point. Added option to have angles between segments.
+    degrees : bool
+        whether to convert radians to degrees in the result
+    float_atol : float
+        The float absolute tolerance to consider that points (x0, y0) and (x1, y1) are the same using the function
+         math.isclose(). ATTENTION, the value corresponds to abs_tol in the math function!
+    raise_undetermined_form_error : bool
+        whether to raise FloatingPrecisionError when the values of x and y are the same (0/0 form). Else, slope value
+         will be np.nan
+    force_positive: bool
+        Whether to force the results to always positive. Only used if as_angle is defined. Default is False.
+    clean_run : bool
+        whether to print statements while running this function.
+
+    Returns
+    -------
+    float
+        the angle formed.
+    """
     ang = 'deg' if degrees else 'rad'
     return compute_slope(x1=x1, y1=y1, x2=x2, y2=y2, x0=x0, y0=y0, as_angle=ang, float_atol=float_atol, raise_undetermined_form_error=raise_undetermined_form_error, force_positive=force_positive, clean_run=clean_run)
 
 def compute_slope(x1: float, y1: float, x2: float, y2: float, x0: float=None, y0: float=None, as_angle: None | str=None, raise_zero_division_error: bool=False, raise_undetermined_form_error: bool=True, float_atol: float=sic_def.def_float_atol, force_positive: bool=False, clean_run: bool=False):
+    """
+    Parameters
+    ----------
+    x1 : float
+        The x coordinate of the first point.
+    y1 : float
+        The y coordinate of the first point.
+    x2 : float
+        The x coordinate of the second point.
+    y2 : float
+        The y coordinate of the second point.
+    x0 : float
+        The x coordinate of the zero point. Added option to have angles between segments.
+    y0 : float
+        The y coordinate of the zero point. Added option to have angles between segments.
+    as_angle : None | str
+        Whether to express the slope as an angle (radians or degrees). Default is None (keeps it as dy / dx).
+    float_atol : float
+        The float absolute tolerance to consider that points (x0, y0) and (x1, y1) are the same using the function
+         math.isclose(). ATTENTION, the value corresponds to abs_tol in the math function!
+    raise_zero_division_error : bool
+        whether to raise ZeroDivisionError when two consecutive values of x are the same (dy/0 form). Else, slope values
+         will be very high/very low.
+    raise_undetermined_form_error : bool
+        whether to raise FloatingPrecisionError when the values of x and y are the same (0/0 form). Else, slope value
+         will be np.nan
+    force_positive: bool
+        Whether to force the results to always positive. Only used if as_angle is defined. Default is False.
+    clean_run : bool
+        whether to print statements while running this function.
+
+    Returns
+    -------
+    float
+        The slope / angle formed.
+    """
     float_point_error_msg = f'slope in undetermined form 0/0 because points are the same (floating point precision) {x1} == {x2}, \n {y1} == {y2}'
     if x0 is None:
         x0 = x1 + 1.0

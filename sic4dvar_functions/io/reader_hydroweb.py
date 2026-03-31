@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -17,11 +15,17 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+Created on November 9th 2023 at 11:00
+by @Isadora Silva
 
+Last modified on February 23rd 2024 at 18:00
+by @Isadora Silva
+
+@authors: Isadora Silva
+"""
 import pathlib
 from datetime import datetime
-from typing import Tuple, Literal
+from typing import Literal, Tuple
 import numpy as np
 import pandas as pd
 from sic4dvar_classes.sic4dvar_0_defaults import SIC4DVarLowCostDefaults
@@ -30,6 +34,34 @@ from sic4dvar_functions.io.reader_sword import get_vars_from_sword_file
 from sic4dvar_functions.utm_converter import load_utm_crs_from_latlon
 
 def read_hydroweb_txt(hydroweb_txt_file_path: str | pathlib.PurePath, no_data_value: float | str=9999.999, ref_datetime: datetime=SIC4DVarLowCostDefaults().def_ref_datetime, freq_datetime: str=SIC4DVarLowCostDefaults().def_freq_datetime, dup_datetime: Literal['drop', 'raise']='raise', start_datetime: datetime | float | int | None=None, end_datetime: datetime | float | int | None=None) -> Tuple[pd.DataFrame, float, float]:
+    """
+    Parameters
+    ----------
+    hydroweb_txt_file_path : str | pathlib.PurePath
+        The path to the csv file containing the data from a Hydroweb altimetry station
+    no_data_value : float
+        The value to be considered as NaN. Default is 9999.999.
+    ref_datetime : datetime
+        The reference datetime to convert between dates to seconds from reference.
+    freq_datetime : datetime
+        The time of observations is approximated every freq when loading the data.
+        Multiplier and str "D", "h", "min", "s". E.g.: "3h", "D". Set as "" to skip this.
+        https://pandas.pydata.org/docs/user_guide/timeseries.html#timeseries-offset-aliases
+    dup_datetime: Literal["drop", "raise"]
+        What to do when the data is assigned to the same datetime. Either "drop", "raise": "drop" drops all
+         occurrences except the first one; "raise" raises IndexError.
+    start_datetime: datetime | float | int | None
+        start datetime for filtering the data (>=). Either as datetime or as seconds from reference (float or int).
+    end_datetime: datetime | float | int | None
+        end datetime for filtering the data (<=). Either as datetime or as seconds from reference (float or int).
+
+    Returns
+    -------
+    Tuple[pd.DataFrame, float, float]
+        (i) latitude of station
+        (ii) longitude of station
+        (iii) DataFrame with tabular data, index as datetime, columns: wse and wse_u
+    """
     lat_s, lon_s = (np.nan, np.nan)
     df_s = pd.DataFrame()
     j = 0
@@ -83,6 +115,54 @@ def read_hydroweb_txt(hydroweb_txt_file_path: str | pathlib.PurePath, no_data_va
     return (lat_s, lon_s, df_s)
 
 def get_df_from_hydroweb_txt(reach_ids: Tuple[str | int, ...], hydroweb_stations: Tuple[str, ...], hydroweb_txt_file_pattern: str | pathlib.PurePath, sword_file_path: str | pathlib.PurePath, x_ref: Literal['node_length', 'dist_out']='node_length', no_data_value: float | str=9999.999, add_facc: bool=False, ref_datetime: datetime=SIC4DVarLowCostDefaults().def_ref_datetime, freq_datetime: str=SIC4DVarLowCostDefaults().def_freq_datetime, dup_datetime: Literal['drop', 'raise']='raise', start_datetime: datetime | float | int | None=None, end_datetime: datetime | float | int | None=None, clean_run: bool=False, debug_mode: bool=False) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+
+    Output is sorted!
+
+    Parameters
+    ----------
+    reach_ids : Tuple[str | int, ...]
+        The reach ids to be loaded in SWORD file to find and assign HydroWeb stations to the nearest nodes.
+    hydroweb_stations : Tuple[str, ...]
+        The name of the HydroWeb stations
+    hydroweb_txt_file_pattern : str | pathlib.PurePath
+        the pattern of the file that contains the node water surface elevations.
+         It is formatted according to hydroweb_stations.
+    sword_file_path : str | pathlib.PurePath | None
+        The path to the SWORD netCDF file
+    x_ref : Literal["node_length", "dist_out"]
+        The reference for the distance.
+         Due to inconsistencies with the SWORD, it is recommended to use "node_length".
+    no_data_value : float | str
+        the no data value in the HydroWeb files.
+    add_facc : bool
+        whether to load facc from SWORD
+    ref_datetime : datetime
+        The reference datetime to convert between dates to seconds from reference.
+    freq_datetime : datetime
+        The time of observations is approximated every freq when loading the data.
+        Multiplier and str "D", "h", "min", "s". E.g.: "3h", "D". Set as "" to skip this.
+        https://pandas.pydata.org/docs/user_guide/timeseries.html#timeseries-offset-aliases
+    dup_datetime: Literal["drop", "raise"]
+        What to do when the data is assigned to the same datetime. Either "drop", "raise": "drop" drops all
+         occurrences except the first one; "raise" raises IndexError.
+    start_datetime: datetime | float | int | None
+        start datetime for filtering the data (>=). Either as datetime or as seconds from reference (float or int).
+    end_datetime: datetime | float | int | None
+        end datetime for filtering the data (<=). Either as datetime or as seconds from reference (float or int).
+    clean_run : bool
+        Whether to print statements while running this function
+    debug_mode : bool
+        Whether to print debug statements while running this function
+
+    Returns
+    -------
+    Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
+        (i) DataFame with the Water Surface Elevation with the nodes as rows and times as columns
+        (ii) DataFame with the Uncertainty in Water Surface Elevation with the nodes as rows and times as columns
+        (iii) DataFame with the SWORD nodes. Nodes as rows, columns are reach_id, dist (distance from the most upstream
+         point) and optionally facc -> accumulated upstream area
+    """
     import shapely
     import pyproj
     if clean_run:
@@ -166,6 +246,7 @@ def get_df_from_hydroweb_txt(reach_ids: Tuple[str | int, ...], hydroweb_stations
         print(msg, 'done')
     return (df_wse_all, df_wse_u_all, df_sword)
 if __name__ == '__main__':
+    '  '
     base_path = pathlib.Path('C:\\Users\\isadora.rezende\\PhD\\Datasets')
     df_wse_all_test, df_wse_u_all_test, df_sword_test = get_df_from_hydroweb_txt(hydroweb_stations=('FIUME-OGLIO_KM0191', 'PO_KM0160', 'PO_KM0145', 'PO_KM0140', 'PO_KM0098', 'PO_KM0096', 'PO_KM0082'), hydroweb_txt_file_pattern=base_path / 'Hydroweb' / 'Po' / 'download_expert' / 'R_PO_{}_exp.txt', sword_file_path=base_path / 'SWORD' / 'v15' / 'netcdf' / 'eu_sword_v15.nc', reach_ids=(21406100011, 21406100021, 21406100031, 21406100041, 21406100051, 21406100061, 21406100071, 21406100081, 21406100101, 21406100111), add_facc=True, freq_datetime='3h', start_datetime=datetime(2008, 5, 1), end_datetime=datetime(2009, 6, 1))
     print(df_wse_all_test)

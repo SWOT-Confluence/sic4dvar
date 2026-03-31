@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -18,7 +16,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-
 import sic4dvar_params as params
 if params.cython_version:
     import sic4dvar_cyfuncs as cy
@@ -32,7 +29,7 @@ import logging
 import inspect
 from pathlib import Path
 import matplotlib.pyplot as plt
-from sic4dvar_functions.cs.m816 import M
+from sic4dvar_functions.cs.k813 import M
 from lib.lib_verif import verify_name_length, check_na
 
 def ManningLW(a0, abar, w, s, n):
@@ -42,12 +39,14 @@ def DarcyW(a0, abar, w, s, cf):
     return 1 / math.pow(cf, 1 / 2) * math.pow(a0 + abar, 3 / 2) * math.pow(w, -1 / 2) * math.pow(9.81 * abs(s), 1 / 2)
 
 def ManningVK(a0, abar, w, s, alpha, beta, z=[]):
+
     w = np.maximum(10, w)
     h = (a0 + abar) / w
     n = alpha * h ** beta
     return ManningLW(a0, abar, w, s, n)
 
 def objective_internal_data_Q_any(_x, *_params):
+
     parameters_dict = {'q': _params[1][0], 'abar': _params[1][1], 'w': _params[1][2], 's': _params[1][3]}
     if len(_params[1]) > 4:
         parameters_dict['z'] = _params[1][4]
@@ -80,6 +79,7 @@ def objective_internal_data_Q_any(_x, *_params):
     return sum
 
 def check_suitability(_n, _A_bar, _A_prime, _W, _S):
+
     if _n < 0:
         print('_n < 0')
         return False
@@ -94,6 +94,7 @@ def check_suitability(_n, _A_bar, _A_prime, _W, _S):
     return True
 
 def check_suitability_any(bounds_dict, parameters_dict, equation, t):
+
     params_func = inspect.signature(globals()[equation]).parameters
     param_names = list(params_func.keys())
     function_params = np.zeros(len(param_names))
@@ -140,6 +141,7 @@ def check_suitability_any(bounds_dict, parameters_dict, equation, t):
     return True
 
 def filter_pom(weights, Y1, idist):
+
     nbw = weights.size
     nby = Y1.size
     ymax = Y1.max()
@@ -180,6 +182,7 @@ def filter_pom(weights, Y1, idist):
     return Y2
 
 def f_approx_sections_v6(X, Y, NbIter=4, SeuilDistance=0.1, FSort=2):
+
     debug = 0
     dmax = []
     list_to_keep = []
@@ -334,6 +337,39 @@ def f_approx_sections_v6(X, Y, NbIter=4, SeuilDistance=0.1, FSort=2):
     return (Xr, Yr, C, N, D, dmax, Err, Xt, Yt)
 
 def fnc_APR(_z, _Ws, _Zs):
+    """Computes hydraulic parameters from a water elevation and a cross section
+    description. Can be run for 1z scaler value, or also vactor to process several
+    z in the same call.
+    NOTE Elevations Zs must be increasing
+    NOTE Elevations Zs must be strictly > in the interpolation zone
+    NOTE Ws and Zs must be the same length
+    NOTE Ws must be >= 0
+
+    Example input:
+    results = fnc_APR([1.5], [1, 1, 2, 2], [0, 1, 1, 2])
+    results = fnc_APR([1.1, 2], [1, 1, 2, 2], [0, 1, 1, 2])
+
+    Parameters
+    ----------
+    _z : float vector
+        a given water elevation (m). Zobs.
+    _Ws : float vector
+        Width of the section (m)
+    _Zs : float vector
+        Elevation of the section (m)
+
+    Returns
+    -------
+    A : float scaler/vector
+        wetted area (m^2)
+    P : real scaler/vector
+        wetted perimeter (m)
+    R : real scaler/vector
+        Hydraulic radius (m) w/ R = A/P
+    w : real scaler/vector
+        Width corresponding to z according to the bathymetry
+
+    """
     nz = len(_z)
     ns = len(_Zs) - 1
     _Ws = _Ws / 2
@@ -394,6 +430,26 @@ def betad(i_type, k, delay, sp):
     return (ym, yarg_gm, abet, bbet, cbet)
 
 def betad_old(k, delay, sp):
+    """Calc. PDF value at mode
+
+    Parameters
+    ----------
+    k : int
+        dimension of the pdf table
+    delay : float
+        desired position of mode
+    sp : float
+        'shape'
+
+    Returns
+    -------
+    ym : scalar
+        PDF value at the mode
+    yarg_gm : array
+        PDF at points (i-1)step, i=-,...k
+    abet, bbet, cbet : float
+        parameters of non-central Beta function
+    """
     step = 1 / (k - 1)
     cbet = 0.1
     yarg_gm = np.zeros(k)
@@ -428,6 +484,9 @@ def betad_old(k, delay, sp):
     return (ym, yarg_gm, abet, bbet, cbet)
 
 def wgh3(k, abet, bbet, cbet):
+    """
+    Produces a vector yarg_gm. 
+    """
     step = 1 / (k - 1)
     yarg_gm = np.zeros(k)
     for i in range(1, k):
@@ -436,6 +495,29 @@ def wgh3(k, abet, bbet, cbet):
     return yarg_gm
 
 def ncbeta(x, a, b, lam):
+    """
+    Computes the probability density function for the 
+    noncentral beta distribution using a transformation
+    of variables to put the desired density function in 
+    terms of a noncentral F. 
+
+    Parameters
+    ----------
+    x : Numpy array
+        Vector of possible argument for the PDF.
+    a : float
+        The 1st degree of freedom/shape parameter.
+    b : float
+        The 2nd degree of freedom/shape parameter.
+    lam : float
+        The noncentrality parameter.
+
+    Returns
+    -------
+    float/array
+        THe probability density function for x, 
+        given the input parameters.
+    """
     const = np.divide(a, b)
     pz = lambda r: scistats.ncf.pdf(r * (const * (1 - r)) ** (-1), 2 * a, 2 * b, lam) * (const * (1 - r) ** 2) ** (-1)
     output = pz(x)
@@ -614,9 +696,40 @@ def compute_steady_state(NBS, NBT, Xr_all, Yr_all, H_s, X_s, Zb, Ks, Qsimsic):
                     H_ss[ind_s_ss, ind_t_ss] = H_ss[ind_s_ss, ind_t_ss] + Delta_H_to
         if not np.isnan(Z_ss[ind_s_ss, list_t_ss]) and (not np.isnan(H_s[ind_s_ss] and H_s[ind_s_ss] > params.valid_min_z and (Z_ss[ind_s_ss, list_t_ss] > params.valid_min_z))):
             cost += (Z_ss[ind_s_ss, list_t_ss] - H_s[ind_s_ss]) ** 2 / params.sigmaZ ** 2
+    '\n    for ind_s_ss in list_s_ss:\n        iter_min=min(Iter_ss[ind_s_ss,ind_t_ss])\n        iter_mean=np.mean(Iter_ss[ind_s_ss,ind_t_ss])\n        iter_max=max(Iter_ss[ind_s_ss,ind_t_ss])\n        if iter_min>=DH_Iter:\n            if iter_min<iter_max:\n                #add text to data points \n                bruh\n    '
     return (Z_ss, A_ss, P_ss, R_ss, cost)
 
 def fnc_HAPF(Q, Ws, Zs):
+    """
+    function [H,A,P,Fr2]=fnc_HAPF(Q,Ws,Zs)
+    % Version 30/09/2021 : first version (POM), inspired from fnc_APR
+    % http://serge.mehl.free.fr/anx/equ_deg3.html
+    % Computes Hydraulic Head from a cross section description at all its
+    % describing elevations Zs. Can be run for 1 Q scalar value, or also vector
+    % (in 1 line) to process several Q in the same call.
+    % Outputs:
+    % H: hydraulic head (m) (real vector/matrix). If Q is a vector of
+    % discharges, the corresponding H is a matrix instead of a line vector,
+    % with one line for each value of Q, and one column for each point (Ws,Zs).
+    % Values for different discharges are in lines. The column index is
+    % used for the different elevations Zs
+    % A: wetted area (m2) (real line vector)
+    % P: wetted perimeter (m) (real line vector)
+    % Fr2: square of the Froude number (real vector/matrix). Same size as for H
+    % From Inputs:
+    % Q: a given discharge (m3/s) (real scalar/vector)
+    % (Ws,Zs) width-elevation description of the section (m) (2 real vectors)
+    % Rmks:
+    % Q must be >= 0
+    % Elevations Zs must be increasing
+    % Elevations Zs must be stricktly > in the interpolation zone
+    % Ws and Zs must be of same length
+    % Ws must be >= 0
+    %==========================================================================
+    % Ex: H=fnc_APRF(100,[1 1 2 2],[0 1 1 2])
+    % Ex: H=fnc_APRF([100 200],[1 1 2 2],[0 1 1 2])
+    %==========================================================================
+    """
     cG = 9.81
     c2G = 2 * cG
     c1s2G = 1 / c2G

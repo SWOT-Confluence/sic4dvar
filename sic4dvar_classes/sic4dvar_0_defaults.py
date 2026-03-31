@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -17,8 +15,14 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+Created on September 15th 2023 at 16:00
+by @Isadora Silva
 
+Last modified on February 7th 2025 at 22:00
+by @Isadora Silva
+
+@authors: Isadora Silva
+"""
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal

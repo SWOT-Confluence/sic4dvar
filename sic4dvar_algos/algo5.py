@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -18,16 +16,16 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-
-import scipy.optimize as sciop
 import inspect
-from sic4dvar_functions.sic4dvar_helper_functions import *
+import scipy.optimize as sciop
 from lib.lib_variables import equations_dict
+from sic4dvar_functions.sic4dvar_helper_functions import *
 
 def bounds_preparation(_dA, _w, equations_dict, equation='ManningLW'):
     epsilon = 0.01
     equations_dict[equation]['bounds'] = {}
     if 'a0' in equations_dict[equation]['parameters']:
+
         dA_error = np.where(_dA < params.valid_min_dA)
         _dA[dA_error] = np.nan
         bnds_min = -np.nanmin(_dA) + epsilon
@@ -54,6 +52,7 @@ def algo5(_q_ref, _dA, _w, _s, reach_id, equations_dict=equations_dict, equation
     data_to_use_dict['abar'] = np.copy(_dA.data)
     data_to_use_dict['w'] = np.copy(_w.data)
     data_to_use_dict['s'] = np.copy(_s.data)
+
     if np.array(_z).size > 0:
         data_to_use_dict['wse'] = np.copy(_z.data)
     bnds = tuple((equations_dict[equation]['bounds'][name] for name in equations_dict[equation]['parameters']))
@@ -62,7 +61,7 @@ def algo5(_q_ref, _dA, _w, _s, reach_id, equations_dict=equations_dict, equation
         a0, n = (results.x[0], results.x[1])
         q_est = np.copy(_q_ref)
         for i in range(q_est.shape[0]):
-            if (data_to_use[i, 3] <= 0.0 or calc.check_na(data_to_use[i, 3])) or (data_to_use[i, 2] <= 0.0 or calc.check_na(data_to_use[i, 2])) or (data_to_use[i, 1] <= params.valid_min_dA or calc.check_na(data_to_use[i, 1])):
+            if (data_to_use[i, 3] <= 0.0 or check_na(data_to_use[i, 3])) or (data_to_use[i, 2] <= 0.0 or check_na(data_to_use[i, 2])) or (data_to_use[i, 1] <= params.valid_min_dA or check_na(data_to_use[i, 1])):
                 q_est[i] = np.nan
             else:
                 q_est[i] = cy.calc_q_manning_strickler_with_n(a0, data_to_use[i, 1], data_to_use[i, 3], n, data_to_use[i, 2])
@@ -75,17 +74,18 @@ def algo5(_q_ref, _dA, _w, _s, reach_id, equations_dict=equations_dict, equation
             initial_guesses = []
             for key in list(equations_dict[equation]['bounds'].keys()):
                 initial_guesses.append((equations_dict[equation]['bounds'][key][1] - equations_dict[equation]['bounds'][key][0]) / 2)
-            print('BOUNDS:', bnds[0])
+            logging.debug(f'BOUNDS: {bnds[0]}')
             new_lb = [bnds[0][0], bnds[1][0]]
             new_ub = [bnds[0][1], bnds[1][1]]
             results = sciop.least_squares(calc.objective_internal_data_Q_any, x0=initial_guesses, bounds=(new_lb, new_ub), args=args)
+
         results_dict = {}
         for j in range(0, len(results.x)):
             results_dict[list(equations_dict[equation]['bounds'].keys())[j]] = results.x[j]
         logging.info(f'Convergence success with strat best1bin: {results.success}')
-        q_est = np.copy(_q_ref)
+
         for i in range(q_est.shape[0]):
-            if (data_to_use_dict['s'][i] <= 0.0 or calc.check_na(data_to_use_dict['s'][i])) or (data_to_use_dict['w'][i] <= 0.0 or calc.check_na(data_to_use_dict['w'][i])) or (data_to_use_dict['abar'][i] <= params.valid_min_dA or calc.check_na(data_to_use_dict['abar'][i])):
+            if (data_to_use_dict['s'][i] <= 0.0 or check_na(data_to_use_dict['s'][i])) or (data_to_use_dict['w'][i] <= 0.0 or check_na(data_to_use_dict['w'][i])) or (data_to_use_dict['abar'][i] <= params.valid_min_dA or check_na(data_to_use_dict['abar'][i])):
                 q_est[i] = np.nan
             else:
                 print(f'Compute {equation} equation with parameters !')
@@ -105,6 +105,7 @@ def algo5(_q_ref, _dA, _w, _s, reach_id, equations_dict=equations_dict, equation
                     q_est[i] = getattr(calc, equation)(**func_params_dict)
                 else:
                     q_est[i] = np.nan
+
     q_est_masked = q_est
     for bound in equations_dict[equation]['bounds'].keys():
         print(equations_dict[equation]['bounds'][bound][1])

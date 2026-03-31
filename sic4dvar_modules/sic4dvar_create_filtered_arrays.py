@@ -1,30 +1,10 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-SIC4DVAR-LC
-Copyright (C) 2025 INRAE
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-"""
-
 from warnings import simplefilter
 simplefilter(action='ignore', category=DeprecationWarning)
 import pandas as pd
 import scipy
 import numpy as np
 import logging
+from copy import deepcopy
 import sic4dvar_params as params
 from sic4dvar_modules.sic4dvar_filtering import remove_unuseable_nodes
 
@@ -50,9 +30,9 @@ def create_filtered_arrays(sic4dvar_dict):
                 sic4dvar_dict['removed_indices'] = removed_indices_intersection
             else:
                 sic4dvar_dict['data_is_useable'] = False
-    sic4dvar_dict['filtered_data']['node_w'] = sic4dvar_dict['input_data']['node_w'][:, sic4dvar_dict['list_to_keep']][sic4dvar_dict['observed_nodes']]
-    sic4dvar_dict['filtered_data']['node_z'] = sic4dvar_dict['input_data']['node_z'][:, sic4dvar_dict['list_to_keep']][sic4dvar_dict['observed_nodes']]
-    sic4dvar_dict['filtered_data']['node_t'] = sic4dvar_dict['input_data']['node_t'][:, sic4dvar_dict['list_to_keep']][sic4dvar_dict['observed_nodes']]
+    sic4dvar_dict['filtered_data']['node_w'] = deepcopy(sic4dvar_dict['input_data']['node_w'][:, sic4dvar_dict['list_to_keep']][sic4dvar_dict['observed_nodes']])
+    sic4dvar_dict['filtered_data']['node_z'] = deepcopy(sic4dvar_dict['input_data']['node_z'][:, sic4dvar_dict['list_to_keep']][sic4dvar_dict['observed_nodes']])
+    sic4dvar_dict['filtered_data']['node_t'] = deepcopy(sic4dvar_dict['input_data']['node_t'][:, sic4dvar_dict['list_to_keep']][sic4dvar_dict['observed_nodes']])
     keys = ['reach_w', 'reach_z', 'reach_s', 'reach_dA']
     for key in keys:
         if sic4dvar_dict['param_dict']['run_type'] == 'set':
@@ -70,5 +50,5 @@ def create_filtered_arrays(sic4dvar_dict):
         sic4dvar_dict['filtered_data']['node_x'] = sic4dvar_dict['input_data']['node_x'][sic4dvar_dict['observed_nodes']]
     index = find_array_with_most_valid_values(sic4dvar_dict['filtered_data']['node_t'][:])
     sic4dvar_dict['filtered_data']['orig_time'] = sic4dvar_dict['filtered_data']['node_t'][0]
-    sic4dvar_dict['output']['time'] = sic4dvar_dict['input_data']['reach_t'] / 86400
+    sic4dvar_dict['output']['time'] = deepcopy(sic4dvar_dict['input_data']['reach_t']) / 86400
     return sic4dvar_dict

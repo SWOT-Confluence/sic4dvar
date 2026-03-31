@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -17,8 +15,14 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+Created on November 9th 2023 at 11:00
+by @Isadora Silva
 
+Last modified on February 10th 2024 at 20:30
+by @Isadora Silva
+
+@authors: Isadora Silva
+"""
 import pathlib
 from typing import Tuple
 import netCDF4 as nc4
@@ -27,6 +31,33 @@ import pandas as pd
 from sic4dvar_functions.helpers.helpers_arrays import masked_array_to_nan_array
 
 def get_vars_from_iris_file(reach_ids: Tuple[str | int, ...] | None, iris_file_path: str | pathlib.PurePath, reach_vars: Tuple[str, ...], raise_missing_reach: bool=True, return_m_m: bool=False, clean_run: bool=False) -> pd.DataFrame:
+    """
+    Read the reach_vars from IRIS (ICESat-2 river surface slope) netcdf file and return a dictionary with the unmasked
+     arrays.
+    Default unit is mm/km !
+
+    more info in: https://www.nature.com/articles/s41597-023-02215-x
+
+    Parameters
+    ----------
+    reach_ids : Tuple[str, ...]
+        The reach ids to be read from the IRIS file
+    iris_file_path : str | pathlib.PurePath
+        The path to the IRIS netCDF file
+    reach_vars : Tuple[str, ...]
+        The reach variables to be loaded
+    raise_missing_reach : bool
+        Whether to raise KeyError in case reach is not available in IRIS dataset (otherwise return NaN for reach)
+    return_m_m : bool
+        Whether to return the vales in m/m instead of mm/km.
+    clean_run : bool
+        Whether to print statements while running this function
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with the unmasked arrays. Rows are the reaches, columns are the slope variables.
+    """
     msg = 'loading data from IRIS'
     if not clean_run:
         print(f'\n{msg}')

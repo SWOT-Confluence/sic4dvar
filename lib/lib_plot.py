@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -18,7 +16,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -41,6 +38,18 @@ def compute_cdf(data, bins=20):
     return (cdf, bin_edges)
 
 def radar_factory(num_vars, frame='circle'):
+    """Create a radar chart with `num_vars` axes.
+
+    This function creates a RadarAxes projection and registers it.
+
+    Parameters
+    ----------
+    num_vars : int
+        Number of variables for radar chart.
+    frame : {'circle' | 'polygon'}
+        Shape of frame surrounding axes.
+
+    """
     theta = np.linspace(0, 2 * np.pi, num_vars, endpoint=False)
 
     class RadarAxes(PolarAxes):
@@ -51,9 +60,11 @@ def radar_factory(num_vars, frame='circle'):
             self.set_theta_zero_location('N')
 
         def fill(self, *args, closed=True, **kwargs):
+            """Override fill so that line is closed by default"""
             return super().fill(*args, closed=closed, **kwargs)
 
         def plot(self, *args, **kwargs):
+            """Override plot so that line is closed by default"""
             lines = super().plot(*args, **kwargs)
             for line in lines:
                 self._close_line(line)
@@ -77,6 +88,7 @@ def radar_factory(num_vars, frame='circle'):
                 raise ValueError("unknown value for 'frame': %s" % frame)
 
         def draw(self, renderer):
+            """ Draw. If frame is polygon, make gridlines polygon-shaped """
             if frame == 'polygon':
                 gridlines = self.yaxis.get_gridlines()
                 for gl in gridlines:

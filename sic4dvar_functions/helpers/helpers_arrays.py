@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 SIC4DVAR-LC
 Copyright (C) 2025 INRAE
@@ -17,10 +15,17 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
+Created on September 11th 2023 at 16:00
+by @Isadora Silva
 
+Last modified on May 15th 2024 at 14:00
+by @Isadora Silva
+
+@authors: Isadora Silva
+"""
 import copy
 import itertools
+import logging
 import math
 import operator
 from datetime import datetime
@@ -31,6 +36,10 @@ from sic4dvar_classes.sic4dvar_0_defaults import SIC4DVarLowCostDefaults
 from sic4dvar_functions.helpers.helpers_generic import pairwise, dt_as_pd_datetime, PdTimeDeltaFreq
 
 def iterable_to_flattened_array(my_iterable: Iterable) -> np.ndarray:
+    """
+    Convert to array/masked array and flatten.
+    Creates a copy
+    """
     my_array1 = copy.deepcopy(my_iterable)
     if not isinstance(my_array1, np.ndarray) or not isinstance(my_array1, np.ma.MaskedArray):
         my_array1 = np.array(my_array1)
@@ -41,6 +50,11 @@ def iterable_to_flattened_array(my_iterable: Iterable) -> np.ndarray:
     return my_array1
 
 def masked_array_to_nan_array(my_array: np.ma.MaskedArray):
+    """
+    If array is a masked array, set masked values in array to np.nan.
+    Might change the data type to float32 / float64
+    Creates a copy.
+    """
     my_array1 = copy.deepcopy(my_array)
     if my_array1.dtype == np.int32 or my_array1.dtype == np.int64:
         if my_array1.size == 0:
@@ -52,14 +66,14 @@ def masked_array_to_nan_array(my_array: np.ma.MaskedArray):
             max_value = np.nanmax(my_array1)
         if my_array1.dtype == np.int32:
             if not np.isnan(max_value):
-                error_msg = ''
+                error_msg = 'max value of array is bigger than max allowed valued in float 32'
                 if max_value > np.finfo(np.float32).max:
                     raise RuntimeError(error_msg)
             my_array1 = my_array1.astype(np.float32)
             return my_array1
         if my_array1.dtype == np.int64:
             if not np.isnan(max_value):
-                error_msg = ''
+                error_msg = 'max value of array is bigger than max allowed valued in float 64'
                 if max_value > np.finfo(np.float64).max:
                     raise RuntimeError(error_msg)
             my_array1 = my_array1.astype(np.float64)
@@ -69,6 +83,11 @@ def masked_array_to_nan_array(my_array: np.ma.MaskedArray):
     return my_array1
 
 def nan_array_to_masked_array(my_array: np.ndarray | np.ma.MaskedArray, fill_value: None | float | int=None) -> np.ma.MaskedArray:
+    """
+    If array is not masked array, set NaN values to masked.
+    Option to set the fill value of the masked array.
+    Creates a copy.
+    """
     my_array1 = copy.deepcopy(my_array)
     if not isinstance(my_array1, np.ma.MaskedArray):
         my_array1 = np.ma.masked_invalid(my_array1)
@@ -77,20 +96,58 @@ def nan_array_to_masked_array(my_array: np.ndarray | np.ma.MaskedArray, fill_val
     return my_array1
 
 def arrays_rmv_nan_pair(x0: Iterable, y0: Iterable) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Remove NaN data considering both arrays.
+    Data will be flattened (1 dimension!)
+    Both arrays must be the same size.
+    E.g.: x = [1, 2, np.nan, 3], y = [4, np.nan, 5, 6] -> x = [1, 3], y = [4, 6]
+
+    Parameters
+    ----------
+    x0 : Iterable
+        The x values
+    y0: Iterable
+        The y values
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
+        NaN free (i) x, (ii) y, and (iii) flattened index arrays
+    """
     x, y = (iterable_to_flattened_array(x0), iterable_to_flattened_array(y0))
     x = masked_array_to_nan_array(x)
     y = masked_array_to_nan_array(y)
     if x.size != y.size:
-        raise TypeError('')
+        raise TypeError('for removing NaN in pairs, x and y must be the same size')
     df = pd.DataFrame({'x': x, 'y': y})
     df.dropna(axis=0, how='any', inplace=True)
     x, y, i = (np.array(df['x']), np.array(df['y']), np.array(df.index, dtype=np.int32))
     return (x, y, i)
 
 def arrays_rmv_next_same(x0: np.ndarray | Iterable, y0: np.ndarray | Iterable, float_atol: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Remove a pair of entries that are the same in a sequence.
+
+    Parameters
+    ----------
+    x0 : np.ndarray | Iterable
+        The x values
+    y0: np.ndarray | Iterable
+        The y values
+    float_atol : float
+        floating-point representation error tolerance, used when comparing floats with function math.isclose() to
+        remove duplicates. The greater this number, the more numbers will be considered the same (the shorter the x and
+         y arrays will be).
+        E.g.: 0.1 + 0.2 == 0.3 -> False. math.isclose(0.1 + 0.2, 0.3, abs_tol=float_atol) -> True.
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
+        Duplicate in a sequence free (i)x, (ii)y and (iii)indexes arrays
+    """
     x, y = [iterable_to_flattened_array(i_) for i_ in [x0, y0]]
     if x.size != y.size:
-        raise TypeError('')
+        raise TypeError('for removing consecutive entries that are the same, x and y must be the same size')
     x_is_int = True if np.issubdtype(x.dtype, np.integer) else False
     y_is_int = True if np.issubdtype(y.dtype, np.integer) else False
     no_dup_x_list = [x[0]]
@@ -119,6 +176,21 @@ def arrays_rmv_next_same(x0: np.ndarray | Iterable, y0: np.ndarray | Iterable, f
     return (x, y, n)
 
 def sort_by_distance_to_value(my_array: np.ndarray | Iterable, value: Any) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Sort the array according to the absolute distance to the value
+
+    Parameters
+    ----------
+    my_array : np.ndarray
+        The array to be sorted
+    value : Any
+        The value that will be used as a base
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        A tuple containing the arrays of the indexes[0] and values[1]
+    """
     if not isinstance(my_array, np.ndarray):
         my_array = np.array(my_array)
     my_array_1 = copy.deepcopy(my_array)
@@ -128,6 +200,21 @@ def sort_by_distance_to_value(my_array: np.ndarray | Iterable, value: Any) -> Tu
     return (ids, my_array_1)
 
 def find_nearest(my_array: np.ndarray | Iterable, value) -> Tuple[int, float]:
+    """
+    Find the nearest value in a numpy array
+
+    Parameters
+    ----------
+    my_array : np.ndarray
+        The array in which the nearest entry to value will be selected
+    value : Any
+        The value that will be searched in the array
+
+    Returns
+    -------
+    Tuple[int, Any]
+        A tuple containing the nearest index to value and the value itself
+    """
     if not isinstance(my_array, np.ndarray):
         my_array = np.array(my_array)
     i = np.abs(my_array - value).argmin()
@@ -135,12 +222,53 @@ def find_nearest(my_array: np.ndarray | Iterable, value) -> Tuple[int, float]:
     return (i, v)
 
 def find_n_nearest(my_array: np.ndarray | Iterable, value: Any, n: int) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Find the n nearest values in a numpy array and their indexes
+
+    Parameters
+    ----------
+    my_array : np.ndarray
+        The array in which the n nearest entries to value will be selected
+    value : Any
+        The value that will be searched in the array
+    n : int
+        The n nearest values
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        A tuple containing the arrays of the n nearest indexes[0] and values[1]
+    """
     if n < 1:
-        raise TypeError('')
+        raise TypeError('n must be bigger than 1')
     ids, my_array = sort_by_distance_to_value(my_array, value)
     return (ids[:n], my_array[:n])
 
 def find_normalized_nearest(my_array0: np.ndarray, value: float, norm_diff_thr: float=0.1, min_n: int=1) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Select the n values of my_array0 that are nearest (in absolute terms) to the desired value.
+    n is defined as the maximum between min_n and the number of values whose normalized difference is smaller
+     than norm_diff_thr.
+
+    Output is not sorted.
+
+    Parameters
+    ----------
+    my_array0 : nd.array
+        The array in which the nearest entries to value will be selected
+    value : float
+        The value that will be searched in the array
+    norm_diff_thr: float
+        The normalized difference threshold to define the number of entries that will be selected.
+    min_n : int
+        The minimum number of points to be returned
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        (i) The indices of the flattened array that are closer (in normalized absolute terms) to the target value.
+        (ii) The normalized weights [0, 1] of the indices given in (i), the closer the value the higher the weight.
+    """
     my_array = copy.deepcopy(my_array0).flatten()
     n_valid_pts = np.count_nonzero(np.isfinite(my_array))
     req_n_pts = min(max(1, min_n), n_valid_pts)
@@ -157,6 +285,30 @@ def find_normalized_nearest(my_array0: np.ndarray, value: float, norm_diff_thr: 
     return (idxs_array, 1 - diff_array.flatten()[idxs_array])
 
 def find_relative_nearest(my_array0: np.ndarray, value: float, rel_diff_thr: float=0.1, min_n: int=1) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Select the n values of my_array0 that are nearest (in absolute terms) to the desired value.
+    n is defined as the maximum between min_n and the number of values whose relative difference is smaller
+     than rel_diff_thr.
+
+    Output is not sorted.
+
+    Parameters
+    ----------
+    my_array0 : nd.array
+        The array in which the nearest entries to value will be selected
+    value : float
+        The value that will be searched in the array
+    rel_diff_thr: float
+        The relative difference threshold to define the number of entries that will be selected.
+    min_n : int
+        The minimum number of points to be returned
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        (i) The indices of the flattened array that are closer (in normalized absolute terms) to the target value.
+        (ii) The relative weights [0, 1] of the indices given in (i), the closer the value the higher the weight.
+    """
     my_array = copy.deepcopy(my_array0).flatten()
     n_valid_pts = np.count_nonzero(np.isfinite(my_array))
     req_n_pts = min(max(1, min_n), n_valid_pts)
@@ -170,13 +322,13 @@ def find_relative_nearest(my_array0: np.ndarray, value: float, rel_diff_thr: flo
 
 def _arrays_de_in_crease(my_array: np.ndarray | Iterable, comp_op: operator, check: bool, force: bool, remove_nan: bool=True) -> np.ndarray | bool:
     if check and force:
-        raise TypeError('')
+        raise TypeError('only one of force or check can be True')
     if not check and (not force):
-        raise TypeError('')
+        raise TypeError('one of force or check must be True')
     if not isinstance(my_array, np.ndarray):
         my_array = np.array(my_array)
     if my_array.ndim != 1:
-        raise TypeError('')
+        raise TypeError('can only check/force increase/decrease with 1D arrays')
     my_array1 = copy.deepcopy(my_array)
     if remove_nan:
         my_array1 = my_array1[np.isfinite(my_array1)]
@@ -209,7 +361,7 @@ def get_mask_nan_across_arrays(*my_arrays: np.ndarray | np.ma.MaskedArray) -> np
         my_arrays = (my_arrays,)
     for arr in my_arrays:
         if arr.ndim > 2:
-            raise TypeError('')
+            raise TypeError('only works with 1D or 2D arrays')
         arr1 = copy.deepcopy(arr)
         arr1 = masked_array_to_nan_array(arr1)
         if expected_shape is None:
@@ -217,7 +369,7 @@ def get_mask_nan_across_arrays(*my_arrays: np.ndarray | np.ma.MaskedArray) -> np
             sum_array = copy.deepcopy(arr1)
             continue
         if arr.shape != expected_shape:
-            raise TypeError('')
+            raise TypeError('shape of all arrays should be the same')
         sum_array += arr1
         if np.any(np.isfinite(sum_array)):
             sum_array /= np.nanmin(sum_array)
@@ -225,6 +377,21 @@ def get_mask_nan_across_arrays(*my_arrays: np.ndarray | np.ma.MaskedArray) -> np
     return nan_bool_array
 
 def get_index_valid_data(*my_arrays: np.ndarray | np.ma.MaskedArray, drop_na_how: Literal['any', 'all']='any', axis: int | tuple=(0, 1)) -> tuple:
+    """
+    Parameters
+    ----------
+    my_arrays : np.ndarray | np.ma.MaskedArray
+    drop_na_how : Literal["any", "all"]
+        used in in 2D arrays. Pandas dropna argument: determine if row or column is removed, when we have at least one
+         NaN or all NaN.
+    axis: tuple
+        axis (in order) to use pandas dropna in 2D arrays
+
+    Returns
+    -------
+    tuple
+        tuple with the valid indexes.
+    """
     if isinstance(axis, int):
         axis = (axis,)
     if not isinstance(my_arrays, tuple):
@@ -328,6 +495,7 @@ def check_shape(my_array: np.ndarray | np.ma.MaskedArray, expected_shape: tuple,
     return my_array_out
 
 def array_filter_by_index(my_array: np.ndarray, row_0_ids: np.ndarray | None=None, col_0_ids: np.ndarray | None=None):
+    """ filter the array by the indexes specified in row and col, keep shape of array (use for row/col vectors!) """
     if my_array.size == 0:
         return copy.deepcopy(my_array)
     if my_array.ndim > 2:
@@ -360,11 +528,11 @@ def array_filter_by_index(my_array: np.ndarray, row_0_ids: np.ndarray | None=Non
         try:
             out_array = copy.deepcopy(my_array[row_ids, :])
         except IndexError as ie:
-            print('debugger helper')
-            print('array', my_array.shape)
-            print(my_array)
-            print('row ids', row_ids.shape)
-            print(row_ids)
+            logging.debug('debugger helper')
+            logging.debug(f'array: {my_array.shape}')
+            logging.debug(f'{my_array}')
+            logging.debug(f'row ids: {row_ids.shape}')
+            logging.debug(f'{row_ids}')
             raise ie
     if col_ids is None or np.array_equal(col_ids, np.array(range(my_array.shape[1]))):
         col_ids = np.array(range(my_array.shape[1]))
@@ -372,11 +540,11 @@ def array_filter_by_index(my_array: np.ndarray, row_0_ids: np.ndarray | None=Non
         try:
             out_array = out_array[:, col_ids]
         except IndexError as ie:
-            print('debugger helper')
-            print('array', out_array.shape)
-            print(out_array)
-            print('col ids', col_ids.shape)
-            print(col_ids)
+            logging.debug('debugger helper')
+            logging.debug(f'array: {out_array.shape}')
+            logging.debug(f'{out_array}')
+            logging.debug(f'col ids: {col_ids.shape}')
+            logging.debug(f'{col_ids}')
             raise ie
     return check_shape(out_array, (row_ids.size, col_ids.size), force_shape=True)
 
@@ -420,6 +588,7 @@ def array_fill_with_nan_from_ids(my_array: np.ndarray, valid_0_ids: np.ndarray, 
     return check_shape(out_array, expected_shape, force_shape=True)
 
 def array_fix_next_same(my_array: np.ndarray, float_atol: float=SIC4DVarLowCostDefaults().def_float_atol) -> np.ndarray:
+    """ loop in pair of points in array and add float_atol to the second value if they are the same """
     out_array = copy.deepcopy(my_array)
     is_next_same = True
     while is_next_same:
@@ -431,6 +600,13 @@ def array_fix_next_same(my_array: np.ndarray, float_atol: float=SIC4DVarLowCostD
     return out_array
 
 def arrays_bounds(ref_array: np.ndarray, value0_low_bound_array: np.ndarray | np.ma.MaskedArray | None=None, value0_up_bound_array: np.ndarray | np.ma.MaskedArray | None=None) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        (1) value_0_low_bound_array
+        (2) value_0_up_bound_array
+    """
     def_low_array, def_up_array = [np.full_like(ref_array, fill_value=inf_, dtype=ref_array.dtype) for inf_ in [-np.inf, np.inf]]
     if value0_low_bound_array is None:
         value_0_low_bound_array = def_low_array
@@ -447,6 +623,7 @@ def arrays_bounds(ref_array: np.ndarray, value0_low_bound_array: np.ndarray | np
 class DataDateTimeArrays(PdTimeDeltaFreq):
 
     def __init__(self, data_dt: np.ndarray | pd.Series | tuple | list, ref_datetime: datetime, freq_datetime: str):
+        """ attributes are not sorted """
         super().__init__(freq_datetime=freq_datetime)
         data_dt = np.array(data_dt).flatten()
         if not isinstance(data_dt[0], np.datetime64):
@@ -474,6 +651,33 @@ def datetime_create_time_range(start_datetime: datetime | float | int, end_datet
     return all_dt_timerange
 
 def datetime_array_set_to_freq_and_filter(data_dt: np.ndarray | pd.Series | tuple | list, ref_datetime: datetime, freq_datetime: str, duplicates: Literal['drop', 'keep', 'raise']='raise', start_datetime: datetime | float | int | None=None, end_datetime: datetime | float | int | None=None):
+    """
+    Match the datetimes to the specified frequency
+    Filter the datetime array to include only the values between start and end dates.
+
+    Parameters
+    ----------
+    data_dt : np.ndarray | pd.Series | tuple | list
+        the datetime of the data, either as datetime objects or as seconds from reference (int and float)
+    ref_datetime : datetime
+        The reference datetime to convert between dates to seconds from reference.
+    freq_datetime : datetime
+        The frequency to match the observations. multiplier and str "D", "h", "min", "s". E.g.: "30min", "3h", "D".
+    duplicates: Literal["drop", "keep", "raise"]
+        What to do when the data is assigned to the same date. Either "drop", "keep" or "raise": "drop" drops all
+         occurrences except the first one; "keep" keeps all the occurrences, "raise" raises IndexError.
+    start_datetime : datetime | float | int | None
+        start datetime for filtering the data (>=). Either as datetime or as seconds from reference (float or int).
+    end_datetime : datetime | float | int | None
+        end datetime for filtering the data (<=). Either as datetime or as seconds from reference (float or int).
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
+        (i) Boolean array to mask the data according to start and end dates
+        (ii) Array with the dates as datetime objects
+        (iii) Array with the dates as seconds from reference
+    """
     dt_o = DataDateTimeArrays(data_dt=data_dt, ref_datetime=ref_datetime, freq_datetime=freq_datetime)
     freq_dt_int, freq_dt_str, freq_datetime = (dt_o.freq_datetime_int, dt_o.freq_datetime_str, dt_o.freq_datetime)
     data_dt_timerange = dt_o.data_dt_timerange
@@ -505,14 +709,14 @@ def datetime_array_set_to_freq_and_filter(data_dt: np.ndarray | pd.Series | tupl
                 mask_bool[mask_id0 + n_sec] = False
                 continue
             else:
-                e_loc = f''
-                raise IndexError(f'')
+                e_loc = f'{all_dt_timerange[all_id]} for {all_dt_timerange[n_sec - 1]} and {all_dt_timerange[n_sec]}'
+                raise IndexError(f'duplicated data considering frequency {freq_datetime}: {e_loc}')
         keep_ids.append(all_id)
         bisect_low_id = all_id
     n_val_elems = np.count_nonzero(mask_bool)
     n_kept_elems = len(keep_ids)
     if n_val_elems != n_kept_elems:
-        raise AssertionError(f'')
+        raise AssertionError(f'number of valid elements {n_val_elems} does not match kept elements {n_kept_elems}')
     all_dt_timerange = all_dt_timerange[keep_ids]
     all_dt_sec_array = all_dt_sec_array[keep_ids]
     return (mask_bool, all_dt_timerange, all_dt_sec_array)

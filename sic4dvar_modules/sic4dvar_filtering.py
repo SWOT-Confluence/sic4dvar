@@ -1,34 +1,14 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-SIC4DVAR-LC
-Copyright (C) 2025 INRAE
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-"""
+import copy
+import logging
 from warnings import simplefilter
 simplefilter(action='ignore', category=DeprecationWarning)
+import numpy as np
 import pandas as pd
 import scipy
-import logging
-import numpy as np
-import copy
 import sic4dvar_params as params
-from sic4dvar_functions.helpers.helpers_arrays import masked_array_to_nan_array, get_mask_nan_across_arrays
-from lib.lib_swot_obs import get_flag_dict_from_config, filter_swot_obs_on_quality
 from lib.lib_dates import get_swot_dates, seconds_to_date_old
+from lib.lib_swot_obs import filter_swot_obs_on_quality, get_flag_dict_from_config
+from sic4dvar_functions.helpers.helpers_arrays import get_mask_nan_across_arrays, masked_array_to_nan_array
 
 def filter_based_on_config(sic4dvar_dict):
     logging.info('Discard reaches and nodes depending on SWOT quality values')
@@ -47,6 +27,7 @@ def filter_based_on_config(sic4dvar_dict):
     return sic4dvar_dict
 
 def remove_unuseable_nodes(node_z0_array, node_w0_array, q_min_n_nodes_param: int=1, q_min_n_times_param: int=1, q_min_per_nodes_param: float=0.0, q_min_per_times_param: float=0.0) -> tuple:
+
     Proceed = True
     if node_z0_array.shape != node_w0_array.shape:
         raise AssertionError('arrays should have the same shape')
