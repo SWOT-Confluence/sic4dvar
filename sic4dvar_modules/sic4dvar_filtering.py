@@ -27,7 +27,16 @@ def filter_based_on_config(sic4dvar_dict):
     return sic4dvar_dict
 
 def remove_unuseable_nodes(node_z0_array, node_w0_array, q_min_n_nodes_param: int=1, q_min_n_times_param: int=1, q_min_per_nodes_param: float=0.0, q_min_per_times_param: float=0.0) -> tuple:
+    """
+        Created on September 19th 2023 at 12:00
+        by @Isadora Silva
 
+        Last modified on September 19th 2023 12:00
+        by @Isadora Silva
+
+        @authors: Isadora Silva
+        """
+    '\n        raise IndexError in case no valid data is found\n\n        Returns\n        -------\n        tuple\n        (i) 1D np.array with the valid NODE indexes, (ii) 2D np.array with the valid TIME INSTANCES indexes\n\n        '
     Proceed = True
     if node_z0_array.shape != node_w0_array.shape:
         raise AssertionError('arrays should have the same shape')

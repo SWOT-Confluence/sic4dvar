@@ -1,35 +1,10 @@
-"""
-SIC4DVAR-LC
-Copyright (C) 2025 INRAE
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-Created in September 2022
-by @Hind Oubanas
-
-Last modified on May 20th 2024 at 22:00
-by @Isadora Silva
-
-@authors: Hind Oubanas, Igor Gejadze and Isadora Silva
-"""
 n = 'node_q'
 m = 'time'
 b = 'width'
 V = 'wse'
 l = ' values not interchanged,'
-A8 = 'sort_bounds'
-A7 = 'force_bounds'
+A7 = 'sort_bounds'
+A6 = 'force_bounds'
 r = 'print'
 q = 'warn'
 p = 'force'
@@ -52,16 +27,16 @@ H = ''
 F = True
 D = 0.0
 B = False
-import copy as e, warnings as AJ
+import copy as e, warnings as AI
 from typing import Literal as o, Tuple
 import numpy as A
 from sic4dvar_classes.sic4dvar_0_defaults import SIC4DVarLowCostDefaults as s
-from sic4dvar_functions.helpers.helpers_arrays import masked_array_to_nan_array as Q, arrays_check_decrease as AK, arrays_check_increase as AL, get_index_valid_data as AM, arrays_bounds as A5, arrays_force_decrease as AN, arrays_force_increase as AO
+from sic4dvar_functions.helpers.helpers_arrays import masked_array_to_nan_array as Q, arrays_check_decrease as AJ, arrays_check_increase as AK, get_index_valid_data as AL, arrays_bounds as A4, arrays_force_decrease as AM, arrays_force_increase as AN
 from sic4dvar_functions.helpers.helpers_generic import pairwise as Z
-from sic4dvar_functions.helpers.helpers_plot import helper_plot_lines as AP
+from sic4dvar_functions.helpers.helpers_plot import helper_plot_lines as AO
 from pathlib import Path
 from sic4dvar_functions.io.reader_swot_obs import get_vars_from_swot_nc as t
-z = o[p, A7, i, A8, X, q, r, Y, H]
+z = o[p, A6, i, A7, X, q, r, Y, H]
 C = s()
 
 def a(value_0, value_1, cor):
@@ -182,14 +157,14 @@ def P(sub_value_array, sub_base_array, sub_value_low_bound_array, sub_value_up_b
     F = norm_min_value
     C = sub_value_array
     for E, B in Z(W(g(C))):
-        I = f''
+        I = f'Forward sweep for point {B}, (previous point {E}),'
         G = D
         P, J = (C[E], C[B])
         i = (P - F) / (L - F)
         Y = (J - F) / (L - F)
         H = J
         Q = Y
-        I += f''
+        I += f' init value {J:.{X}f},'
         j = D
         if f:
             j = A.mean([P, J])
@@ -200,11 +175,11 @@ def P(sub_value_array, sub_base_array, sub_value_low_bound_array, sub_value_up_b
             if G > D:
                 C[B] = H
                 Q = (H - F) / (L - F)
-                I += f''
+                I += f' value smoothed, smoothed value {H:.{X}f}'
             else:
-                I += f''
+                I += f' value not smoothed,'
         else:
-            I += f''
+            I += f' value not smoothed,'
         C[E], C[B], p = k(value_0=P, value_1=H, norm_value_0=i, norm_value_1=Q, b=b, b_min_thr=b_min_thr, b_max_thr=b_max_thr, value_0_low=M[E], value_0_up=N[E], value_1_low=M[B], value_1_up=N[B], value_0_ref=R[E], value_1_ref=R[B], norm_value_0_low=T[E], norm_value_0_up=U[E], norm_value_1_low=T[B], norm_value_1_up=U[B], float_atol=h)
         if p:
             q = (C[E] - F) / (L - F)
@@ -212,12 +187,12 @@ def P(sub_value_array, sub_base_array, sub_value_low_bound_array, sub_value_up_b
             n = S([K(i - q), K(Y - Q)])
             if n > G:
                 G = n
-            I += f''
+            I += f' values interchanged to force {b}reasing behavior,'
         else:
             I += l
         if G > V:
             V = G
-        I += f''
+        I += f' total change in values {G:.{X}f}.'
         if debug_mode:
             0
         if G > 0 and f:
@@ -244,14 +219,14 @@ def R(sub_value_array, sub_base_array, sub_value_low_bound_array, sub_value_up_b
     F = norm_min_value
     C = sub_value_array
     for E, B in Z(reversed(W(g(C)))):
-        G = f''
+        G = f'Backward sweep for point {B}, (next point {E}),'
         H = D
         J, P = (C[B], C[E])
         Y = (J - F) / (L - F)
         i = (P - F) / (L - F)
         I = J
         R = Y
-        G += f' '
+        G += f' init value {J:.{Q}f},'
         j = D
         if f:
             j = A.mean([J, P])
@@ -262,12 +237,12 @@ def R(sub_value_array, sub_base_array, sub_value_low_bound_array, sub_value_up_b
             if H > D:
                 C[B] = I
                 R = (I - F) / (L - F)
-                G += f''
-                G += f''
+                G += f' value smoothed,'
+                G += f' smoothed value {I:.{Q}f}'
             else:
-                G += f''
+                G += f' value not smoothed,'
         else:
-            G += f''
+            G += f' value not smoothed,'
         C[B], C[E], p = k(value_0=I, value_1=P, norm_value_0=R, norm_value_1=i, b=b, b_min_thr=b_min_thr, b_max_thr=b_max_thr, value_0_low=M[B], value_0_up=N[B], value_1_low=M[E], value_1_up=N[E], value_0_ref=T[B], value_1_ref=T[E], norm_value_0_low=U[B], norm_value_0_up=V[B], norm_value_1_low=U[E], norm_value_1_up=V[E], float_atol=h)
         if p:
             R = (C[B] - F) / (L - F)
@@ -275,13 +250,13 @@ def R(sub_value_array, sub_base_array, sub_value_low_bound_array, sub_value_up_b
             n = S([K(Y - R), K(i - q)])
             if n > H:
                 H = n
-            G += f' '
-            G += f' '
+            G += f' values interchanged to force {b}reasing behavior,'
+            G += f' interchanged value {C[B]:.{Q}f},'
         else:
             G += l
         if H > X:
             X = H
-        G += f' '
+        G += f' total change in values {H:.{Q}f}'
         if debug_mode:
             0
         if H > 0 and f:
@@ -293,7 +268,7 @@ def R(sub_value_array, sub_base_array, sub_value_low_bound_array, sub_value_up_b
             C[E] = A.clip(M[E], t, N[E])
     return (C, X)
 
-def A6(sub_value0_array, sub_base0_array, sub_value_low_bound0_array, sub_value_up_bound0_array, sub_value_ref0_array, norm_sub_value_low_bound_array, norm_sub_value_up_bound_array, cor, norm_max_value, norm_min_value, inter_behavior=H, inter_behavior_min_thr=C.def_lsm_z_inter_min_dz, inter_behavior_max_thr=C.def_lsm_z_inter_max_dz, min_change_v_thr=C.def_lsm_z_min_dz, first_sweep=C.def_lsm_z_first_sweep, remove_bias_in_loop=C.def_lsm_z_rem_bias_in_loop, always_smooth=F, inter_only=B, check_nan=F, float_atol=C.def_float_atol, debug_mode=B):
+def A5(sub_value0_array, sub_base0_array, sub_value_low_bound0_array, sub_value_up_bound0_array, sub_value_ref0_array, norm_sub_value_low_bound_array, norm_sub_value_up_bound_array, cor, norm_max_value, norm_min_value, inter_behavior=H, inter_behavior_min_thr=C.def_lsm_z_inter_min_dz, inter_behavior_max_thr=C.def_lsm_z_inter_max_dz, min_change_v_thr=C.def_lsm_z_min_dz, first_sweep=C.def_lsm_z_first_sweep, remove_bias_in_loop=C.def_lsm_z_rem_bias_in_loop, always_smooth=F, inter_only=B, check_nan=F, float_atol=C.def_float_atol, debug_mode=B):
     V = always_smooth
     T = first_sweep
     S = min_change_v_thr
@@ -337,12 +312,12 @@ def A6(sub_value0_array, sub_base0_array, sub_value_low_bound0_array, sub_value_
     return (B, C)
 
 def u(value0_array, base0_array, max_iter, cor, min_change_v_thr=C.def_float_atol, behavior=H, inter_behavior=B, inter_behavior_min_thr=C.def_float_atol, inter_behavior_max_thr=A.inf, check_behavior=X, value_low_bound0_array=L, value_up_bound0_array=L, value_ref0_array=L, first_sweep=C.def_lsm_z_first_sweep, remove_bias_in_loop=C.def_lsm_z_rem_bias_in_loop, always_smooth=F, inter_only=B, float_atol=C.def_float_atol, copy_input_arrays=F, plot=F, plot_title=H, clean_run=B, debug_mode=B):
-    AE = first_sweep
-    AD = value_up_bound0_array
-    AC = value_low_bound0_array
-    AB = inter_behavior_max_thr
-    AA = inter_behavior_min_thr
-    A9 = base0_array
+    AD = first_sweep
+    AC = value_up_bound0_array
+    AB = value_low_bound0_array
+    AA = inter_behavior_max_thr
+    A9 = inter_behavior_min_thr
+    A8 = base0_array
     w = float_atol
     v = inter_only
     u = remove_bias_in_loop
@@ -362,25 +337,25 @@ def u(value0_array, base0_array, max_iter, cor, min_change_v_thr=C.def_float_ato
         Z = B
     if copy_input_arrays:
         G = Q(s)
-        a = Q(A9)
-        I, J = A5(ref_array=G, value0_low_bound_array=AC, value0_up_bound_array=AD)
+        a = Q(A8)
+        I, J = A4(ref_array=G, value0_low_bound_array=AB, value0_up_bound_array=AC)
         if t is L:
             b = A.full_like(G, fill_value=A.nan, dtype=s.dtype)
         else:
             b = Q(t)
     else:
-        G, a, I, J, b = (s, A9, AC, AD, t)
-    AF = [G, a, I, J, b]
-    if A.any([A.ndim != 1 for A in AF]):
+        G, a, I, J, b = (s, A8, AB, AC, t)
+    AE = [G, a, I, J, b]
+    if A.any([A.ndim != 1 for A in AE]):
         raise N
-    if A.any([A.shape != G.shape for A in AF]):
+    if A.any([A.shape != G.shape for A in AE]):
         raise N
     if U in R.lower():
-        S = AK
+        S = AJ
         x = 'decreasing'
         V = 'decrease' if V else H
     elif j in R.lower():
-        S = AL
+        S = AK
         x = 'increasing'
         V = 'increase' if V else H
     else:
@@ -392,10 +367,10 @@ def u(value0_array, base0_array, max_iter, cor, min_change_v_thr=C.def_float_ato
         M = Y
         V = H
     if R:
-        if not any([A == M.lower() for A in [p, A7, i, A8, X, q, r, Y, H]]):
+        if not any([A == M.lower() for A in [p, A6, i, A7, X, q, r, Y, H]]):
             raise h
     AW = f(K(A.log10(k)))
-    C = AM(G, a)[0]
+    C = AL(G, a)[0]
     if not P:
         0
     n, c = ([], [])
@@ -410,11 +385,11 @@ def u(value0_array, base0_array, max_iter, cor, min_change_v_thr=C.def_float_ato
         return (G, I, J, D)
     E = G[C]
     y = A.nanmin(I[C])
-    AG = A.nanmin(G[C])
-    T = A.nanmin([y, AG]) if A.isfinite(y) else AG
+    AF = A.nanmin(G[C])
+    T = A.nanmin([y, AF]) if A.isfinite(y) else AF
     z = A.nanmax(J[C])
-    AH = A.nanmax(G[C])
-    d = A.nanmax([z, AH]) if A.isfinite(z) else AH
+    AG = A.nanmax(G[C])
+    d = A.nanmax([z, AG]) if A.isfinite(z) else AG
     if d - T < w:
         if not P:
             0
@@ -427,20 +402,20 @@ def u(value0_array, base0_array, max_iter, cor, min_change_v_thr=C.def_float_ato
         A1 = A.minimum(O, (J - T) / (d - T))
     else:
         A1 = A.full_like(J, fill_value=O)
-    AQ = A.mean(E)
+    AP = A.mean(E)
     if not P:
         0
     if m:
         n.append(e.deepcopy(G[C]))
         c.append('Initial')
     A2 = D
-    for AI in W(max_iter):
+    for AH in W(max_iter):
         if Z:
             0
-        if AI == 0:
-            E, o = A6(sub_value0_array=G[C], sub_base0_array=a[C], sub_value_low_bound0_array=I[C], sub_value_up_bound0_array=J[C], sub_value_ref0_array=b[C], norm_sub_value_low_bound_array=A0[C], norm_sub_value_up_bound_array=A1[C], cor=cor, norm_max_value=d, norm_min_value=T, inter_behavior=Y, inter_behavior_min_thr=AA, inter_behavior_max_thr=AB, min_change_v_thr=k, first_sweep=AE, remove_bias_in_loop=u, always_smooth=l, inter_only=v, check_nan=B, float_atol=w, debug_mode=Z)
+        if AH == 0:
+            E, o = A5(sub_value0_array=G[C], sub_base0_array=a[C], sub_value_low_bound0_array=I[C], sub_value_up_bound0_array=J[C], sub_value_ref0_array=b[C], norm_sub_value_low_bound_array=A0[C], norm_sub_value_up_bound_array=A1[C], cor=cor, norm_max_value=d, norm_min_value=T, inter_behavior=Y, inter_behavior_min_thr=A9, inter_behavior_max_thr=AA, min_change_v_thr=k, first_sweep=AD, remove_bias_in_loop=u, always_smooth=l, inter_only=v, check_nan=B, float_atol=w, debug_mode=Z)
         else:
-            E, o = A6(sub_value0_array=G[C], sub_base0_array=a[C], sub_value_low_bound0_array=I[C], sub_value_up_bound0_array=J[C], sub_value_ref0_array=b[C], norm_sub_value_low_bound_array=A0[C], norm_sub_value_up_bound_array=A1[C], cor=cor, norm_max_value=d, norm_min_value=T, inter_behavior=V, inter_behavior_min_thr=AA, inter_behavior_max_thr=AB, min_change_v_thr=k, first_sweep=AE, remove_bias_in_loop=u, always_smooth=l, inter_only=v, check_nan=B, float_atol=w, debug_mode=Z)
+            E, o = A5(sub_value0_array=G[C], sub_base0_array=a[C], sub_value_low_bound0_array=I[C], sub_value_up_bound0_array=J[C], sub_value_ref0_array=b[C], norm_sub_value_low_bound_array=A0[C], norm_sub_value_up_bound_array=A1[C], cor=cor, norm_max_value=d, norm_min_value=T, inter_behavior=V, inter_behavior_min_thr=A9, inter_behavior_max_thr=AA, min_change_v_thr=k, first_sweep=AD, remove_bias_in_loop=u, always_smooth=l, inter_only=v, check_nan=B, float_atol=w, debug_mode=Z)
         if not P:
             0
         if o <= k:
@@ -451,26 +426,25 @@ def u(value0_array, base0_array, max_iter, cor, min_change_v_thr=C.def_float_ato
             A3 = B
         if m:
             n.append(e.deepcopy(E))
-            c.append(f'')
+            c.append(f'Iteration {AH + 1}')
         G[C] = E
         if o > A2:
             A2 = o
         if A3:
             break
     if not u:
-        AR = A.mean(E)
-        A4 = AQ - AR
-        A4 = E.size * (E * A4 / A.sum(E))
-        AS = E + A4
+        AQ = A.mean(E)
+        AR = AP - AQ
+        AS = E + AR
         E = A.clip(I[C], AS, J[C])
     if S is not L:
         if R:
-            AT = f''
+            AT = f'values are not always {x}'
             if not M or Y in M.lower():
                 0
             elif not S(E, remove_nan=B):
                 if M.lower() == q:
-                    AJ.warn(AT, RuntimeWarning)
+                    AI.warn(AT, RuntimeWarning)
                 elif r in M.lower():
                     0
                 elif X in M.lower():
@@ -481,9 +455,9 @@ def u(value0_array, base0_array, max_iter, cor, min_change_v_thr=C.def_float_ato
                         if U in R.lower():
                             E = E[::-1]
                     elif j in R.lower():
-                        E = AO(E)
-                    else:
                         E = AN(E)
+                    else:
+                        E = AM(E)
                     if 'bounds' in M.lower():
                         if not A.all(A.isinf(I[C])):
                             AU = I[C] > E
@@ -500,7 +474,7 @@ def u(value0_array, base0_array, max_iter, cor, min_change_v_thr=C.def_float_ato
     if m:
         n.append(e.deepcopy(E))
         c.append('Final')
-        AP(xs=[C] * g(c), ys=n, show=F, line_labels=c, title=plot_title, x_axis_title='Indexes', y_axis_title='Values', fig_width=15, fig_height=5, add_legend=F)
+        AO(xs=[C] * g(c), ys=n, show=F, line_labels=c, title=plot_title, x_axis_title='Indexes', y_axis_title='Values', fig_width=15, fig_height=5, add_legend=F)
     G[C] = E
     I[C] = A.minimum(I[C], G[C])
     J[C] = A.maximum(J[C], G[C])
@@ -518,7 +492,7 @@ def v(dim, value0_array, base0_array, max_iter, cor, min_change_v_thr=C.def_floa
         S = B
     E = Q(R)
     K = Q(base0_array)
-    H, I = A5(ref_array=E, value0_low_bound_array=value_low_bound0_array, value0_up_bound_array=T)
+    H, I = A4(ref_array=E, value0_low_bound_array=value_low_bound0_array, value0_up_bound_array=T)
     if value_ref0_array is L:
         M = A.full_like(E, fill_value=A.nan, dtype=R.dtype)
     else:
@@ -569,5 +543,5 @@ if __name__ == '__main__':
         T.shape = (T.size, 1)
         M = w[:, J]
         M.shape = (M.size, 1)
-        v(dim=1, value0_array=M, base0_array=x, max_iter=2, cor=200, min_change_v_thr=y, inter_behavior=B, float_atol=0.01, plot=F, plot_title=f'', debug_mode=F)
+        v(dim=1, value0_array=M, base0_array=x, max_iter=2, cor=200, min_change_v_thr=y, inter_behavior=B, float_atol=0.01, plot=F, plot_title=f'Smoothing Width Section {J}', debug_mode=F)
         break

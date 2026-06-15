@@ -1,28 +1,3 @@
-"""
-SIC4DVAR-LC
-Copyright (C) 2025 INRAE
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-Created in September 2022
-by @Hind Oubanas
-
-Last modified on February 8th 2024 at 16:15
-by @Isadora Silva
-
-@authors: Hind Oubanas, Igor Gejadze and Isadora Silva
-"""
 W = 'node_q'
 V = 'time'
 Q = 'width'
@@ -89,11 +64,11 @@ def j(value_0, value_1, b=G, b_min_thr=C().def_float_atol, b_max_thr=A.inf):
         return B
     return D
 
-def A0(sub_value0_array, sub_base0_array, cor, min_change_v_thr=C().def_float_atol, inter_behaviour=G, inter_behaviour_min_thr=C().def_float_atol, inter_behaviour_max_thr=A.inf, inter_only=B, check_nan=D, debug_mode=B):
+def A0(sub_value0_array, sub_base0_array, cor, min_change_v_thr=C().def_float_atol, inter_behavior=G, inter_behavior_min_thr=C().def_float_atol, inter_behavior_max_thr=A.inf, inter_only=B, check_nan=D, debug_mode=B):
     p = debug_mode
-    o = inter_behaviour_max_thr
-    m = inter_behaviour_min_thr
-    l = inter_behaviour
+    o = inter_behavior_max_thr
+    m = inter_behavior_min_thr
+    l = inter_behavior
     a = min_change_v_thr
     V = inter_only
     C = cor
@@ -119,7 +94,7 @@ def A0(sub_value0_array, sub_base0_array, cor, min_change_v_thr=C().def_float_at
     L = b(S(A.log10(a)))
     J = 0
     for E, F in g(O(T(B))):
-        P = f''
+        P = f'Forward sweep for point {F}, (previous point {E}),'
         H, I = (B[E], B[F])
         K = N
         if U(C, A.ndarray):
@@ -138,20 +113,20 @@ def A0(sub_value0_array, sub_base0_array, cor, min_change_v_thr=C().def_float_at
             B[F] = d
             if D > J:
                 J = D
-            P += f''
+            P += f' relax factor {Q:.{L}f}, change in values {D:.{L}f},'
             H, I = (B[E], B[F])
         if j(value_0=H, value_1=I, b=W, b_min_thr=m, b_max_thr=o):
             B[E], B[F] = (I, H)
             D = S(I - H)
             if D > J:
                 J = D
-            P += f' '
+            P += f' values interchanged to force {W}reasing behavior, change in values {D:.{L}f}: {I:.{L}f}, {H:.{L}f}'
         elif V:
-            P += f''
+            P += f' values not interchanged.'
         if p:
             0
     for F, E in g(reversed(O(T(B)))):
-        P = f''
+        P = f'Backward sweep for point {E}, (forward point {F}),'
         H, I = (B[E], B[F])
         K = N
         if U(C, A.ndarray):
@@ -172,21 +147,21 @@ def A0(sub_value0_array, sub_base0_array, cor, min_change_v_thr=C().def_float_at
                 J = D
             if D > J:
                 J = D
-            P += f' '
+            P += f' relax factor {Q:.{L}f}, change in values {D:.{L}f}, '
             H, I = (B[E], B[F])
         if j(value_0=H, value_1=I, b=W, b_min_thr=m, b_max_thr=o):
             B[E], B[F] = (I, H)
             D = S(I - H)
             if D > J:
                 J = D
-            P += f''
+            P += f' values interchanged to force {W}reasing behavior, change in values {D:.{L}f}: {I:.{L}f}, {H:.{L}f}'
         elif V:
-            P += f''
+            P += f' values not interchanged.'
         if p:
             0
     return (B, J)
 
-def c(value0_array, base0_array, max_iter, cor, always_run_first_iter=D, behaviour=G, inter_behaviour=B, inter_behaviour_min_thr=C().def_float_atol, inter_behaviour_max_thr=A.inf, check_behaviour=f, min_change_v_thr=C().def_float_atol, plot=D, plot_title=G, clean_run=B, debug_mode=B, time_integration=B):
+def c(value0_array, base0_array, max_iter, cor, always_run_first_iter=D, behavior=G, inter_behavior=B, inter_behavior_min_thr=C().def_float_atol, inter_behavior_max_thr=A.inf, check_behavior=f, min_change_v_thr=C().def_float_atol, plot=D, plot_title=G, clean_run=B, debug_mode=B, time_integration=B):
     u = 'print'
     t = 'warn'
     s = 'force'
@@ -197,10 +172,10 @@ def c(value0_array, base0_array, max_iter, cor, always_run_first_iter=D, behavio
     h = debug_mode
     g = min_change_v_thr
     c = plot
-    Q = inter_behaviour
-    P = behaviour
+    Q = inter_behavior
+    P = behavior
     K = clean_run
-    J = check_behaviour
+    J = check_behavior
     if h:
         K = B
     if K:
@@ -262,7 +237,7 @@ def c(value0_array, base0_array, max_iter, cor, always_run_first_iter=D, behavio
         d.append(a.deepcopy(F[I]))
         V.append('Initial')
     for A1 in O(max_iter):
-        C, A2 = A0(sub_value0_array=F[I], sub_base0_array=U[I], cor=cor, min_change_v_thr=g, inter_behaviour=Q, inter_only=B, inter_behaviour_min_thr=inter_behaviour_min_thr, inter_behaviour_max_thr=inter_behaviour_max_thr, check_nan=B, debug_mode=h)
+        C, A2 = A0(sub_value0_array=F[I], sub_base0_array=U[I], cor=cor, min_change_v_thr=g, inter_behavior=Q, inter_only=B, inter_behavior_min_thr=inter_behavior_min_thr, inter_behavior_max_thr=inter_behavior_max_thr, check_nan=B, debug_mode=h)
         if not K:
             0
         if A2 <= g:
@@ -291,7 +266,7 @@ def c(value0_array, base0_array, max_iter, cor, always_run_first_iter=D, behavio
     C = C + (W - Z)
     if L is not l:
         if P:
-            A3 = f'{i}'
+            A3 = f'values are not always {i}'
             if not J:
                 0
             elif J.lower() == m:
@@ -318,7 +293,7 @@ def c(value0_array, base0_array, max_iter, cor, always_run_first_iter=D, behavio
     F[I] = C
     return F
 
-def K(dim, value0_array, base0_array, max_iter, cor, always_run_first_iter=D, behaviour=G, inter_behaviour=B, inter_behaviour_min_thr=C().def_float_atol, inter_behaviour_max_thr=A.inf, check_behaviour=f, min_change_v_thr=C().def_float_atol, plot=B, plot_title=G, clean_run=B, debug_mode=B, time_integration=B):
+def K(dim, value0_array, base0_array, max_iter, cor, always_run_first_iter=D, behavior=G, inter_behavior=B, inter_behavior_min_thr=C().def_float_atol, inter_behavior_max_thr=A.inf, check_behavior=f, min_change_v_thr=C().def_float_atol, plot=B, plot_title=G, clean_run=B, debug_mode=B, time_integration=B):
     J = value0_array
     I = debug_mode
     G = clean_run
@@ -348,7 +323,7 @@ def K(dim, value0_array, base0_array, max_iter, cor, always_run_first_iter=D, be
             L = H[E, :] if F == 0 else H[:, E]
         else:
             L = H
-        N = c(value0_array=Q, base0_array=L, max_iter=max_iter, cor=cor, always_run_first_iter=always_run_first_iter, behaviour=behaviour, inter_behaviour=inter_behaviour, inter_behaviour_min_thr=inter_behaviour_min_thr, inter_behaviour_max_thr=inter_behaviour_max_thr, check_behaviour=check_behaviour, min_change_v_thr=min_change_v_thr, plot=plot, plot_title=plot_title + f' {E}', clean_run=G, debug_mode=I, time_integration=time_integration)
+        N = c(value0_array=Q, base0_array=L, max_iter=max_iter, cor=cor, always_run_first_iter=always_run_first_iter, behavior=behavior, inter_behavior=inter_behavior, inter_behavior_min_thr=inter_behavior_min_thr, inter_behavior_max_thr=inter_behavior_max_thr, check_behavior=check_behavior, min_change_v_thr=min_change_v_thr, plot=plot, plot_title=plot_title + f' {E}', clean_run=G, debug_mode=I, time_integration=time_integration)
         if F == 0:
             C[E, :] = N
         else:
@@ -364,7 +339,7 @@ if __name__ == '__main__':
     for I in O(2, H.shape[1]):
         J = H[:, I]
         J.shape = (J.size, 1)
-        L = dict(dim=1, value0_array=J, base0_array=d, max_iter=10, cor=200, behaviour=o, check_behaviour=G, min_change_v_thr=0.0001, plot=D)
-        K(inter_behaviour=B, plot_title=f'', debug_mode=B, **L)
-        K(inter_behaviour=D, inter_behaviour_min_thr=0.01, inter_behaviour_max_thr=A.inf, plot_title=f'', debug_mode=D, **L)
+        L = dict(dim=1, value0_array=J, base0_array=d, max_iter=10, cor=200, behavior=o, check_behavior=G, min_change_v_thr=0.0001, plot=D)
+        K(inter_behavior=B, plot_title=f'Without Interchange Section {I}', debug_mode=B, **L)
+        K(inter_behavior=D, inter_behavior_min_thr=0.01, inter_behavior_max_thr=A.inf, plot_title=f'With Interchange {I}', debug_mode=D, **L)
         break
