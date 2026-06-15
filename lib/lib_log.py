@@ -35,7 +35,8 @@ def set_logger(param_dict, filename=None):
     consoleHandler = logging.StreamHandler()
     consoleHandler.setFormatter(logFormatter)
     logger.addHandler(consoleHandler)
-    if param_dict['log_level'] in [logging.DEBUG, logging.INFO]:
+    if param_dict['log_level'] in ['DEBUG', 'INFO']:
+        os.makedirs(filename.parent, exist_ok=True)
         if os.path.exists(filename):
             os.remove(filename)
         fileHandler = logging.FileHandler(filename)
@@ -48,8 +49,9 @@ def close_logger(param_dict):
         logger.removeHandler(logger.handlers[0])
 
 def append_to_principal_log(param_dict, message):
-    if param_dict['log_level'] in [logging.DEBUG, logging.INFO]:
+    if param_dict['log_level'] in ['DEBUG', 'INFO']:
         log_path = param_dict['log_path']
+        os.makedirs(log_path.parent, exist_ok=True)
         if not log_path.parent.exists():
             os.makedirs(log_path.parent, exist_ok=True)
         with portalocker.Lock(log_path, mode='a+', timeout=5) as f:

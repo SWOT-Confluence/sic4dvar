@@ -9,8 +9,8 @@ from scipy.optimize import brent, minimize_scalar
 from pathlib import Path
 import sic4dvar_params as params
 from lib.lib_dates import daynum_to_date
-from lib.lib_verif import verify_name_length
-from sic4dvar_algos.algo3 import algo3, modified_manning_integrated
+from lib.lib_verif import verify_name_length, check_na
+from sic4dvar_algos.s157 import Z1, Z0
 from sic4dvar_algos.algo5 import algo5
 from sic4dvar_functions.sic4dvar_gnuplot_save import gnuplot_save_cs, gnuplot_save_q, gnuplot_save_var, gnuplot_save_cs, gnuplot_save_var
 from sic4dvar_functions.sic4dvar_helper_functions import build_output_q_masked_array, build_output_2d_masked_array, compute_mean_var_from_2D_array, get_external_friction_data, grad_variance, interp_pdf_tables
@@ -20,6 +20,30 @@ from sic4dvar_modules.sic4dvar_extrapolation import Extrapolation
 from sic4dvar_modules.sic4dvar_filtering import filter_based_on_config, remove_unuseable_nodes
 from sic4dvar_modules.sic4dvar_launch_algo5 import launch_algo5
 from sic4dvar_modules.sic4dvar_qwbm_replace import replace_prior
+
+def set_correlation_parameters(node_x, reach_t):
+    other_sic_params = {}
+    if params.corx_option == 0:
+        corx = 200.0
+    elif params.corx_option == 1:
+        corx = np.mean(np.diff(node_x))
+    elif params.corx_option == 2:
+        corx = 200.0
+    corx_array = np.ones(len(node_x)) * corx
+    cort = params.cort
+    cort_width = cort
+    cort_tmp = []
+    cort_slope = 0.0
+    for t in range(0, len(reach_t)):
+        if not check_na(reach_t[t]):
+            cort_tmp.append(reach_t[t])
+    cort_slope = np.mean(np.diff(cort_tmp))
+    if params.override_cort:
+        cort = cort_slope
+    cort_wse = cort
+    other_sic_params['cort_wse'] = cort_wse
+    other_sic_params['cort_slope'] = 0.0
+    return (corx, corx_array, cort_wse, cort_width, other_sic_params)
 
 def sic4dvar_preprocessing(sic4dvar_dict, params, reach_number=0):
     logging.info('Runs launch_sic4dvar over %d reaches' % reach_number)
@@ -157,7 +181,10 @@ def sic4dvar_compute_discharge(sic4dvar_dict, params, flag_qwbm):
                 sic4dvar_dict['input_data']['friction_value'] = friction_mean
             else:
                 sic4dvar_dict['input_data']['friction_value'] = None
-            sic4dvar_dict['output']['q_algo31'], sic4dvar_dict['output']['valid'], sic4dvar_dict['reliability'], sic4dvar_dict['output']['Kmi_acc'], sic4dvar_dict['output']['Zb_acc'] = algo3(apr_array, sic4dvar_dict['input_data']['reach_qwbm'], params, SLOPEM1, sic4dvar_dict['output']['valid'], sic4dvar_dict['filtered_data']['node_z'], sic4dvar_dict['input_data']['node_z'], sic4dvar_dict['input_data']['node_z_ini'], sic4dvar_dict['filtered_data']['node_x'], sic4dvar_dict['last_node_for_integral'], bathymetry_array, sic4dvar_dict['param_dict'], sic4dvar_dict['input_data']['reach_id'], sic4dvar_dict['filtered_data']['reach_t'], bb=sic4dvar_dict['bb'], reliability=sic4dvar_dict['reliability'], Qsdev=sic4dvar_dict['input_data']['reach_qsdev'], last_time_instant=last_time_instant, input_data=sic4dvar_dict['input_data'], time_indexes_to_keep=time_indexes_to_keep, friction_value=sic4dvar_dict['input_data']['friction_value'])
+            sic4dvar_dict['output']['q_algo31'], sic4dvar_dict['output']['valid'], sic4dvar_dict['reliability'], sic4dvar_dict['output']['Kmi_acc'], sic4dvar_dict['output']['Zb_acc'] = Z1(apr_array, sic4dvar_dict['input_data']['reach_qwbm'], params, SLOPEM1, sic4dvar_dict['output']['valid'], sic4dvar_dict['filtered_data']['node_z'], sic4dvar_dict['input_data']['node_z'], sic4dvar_dict['input_data']['node_z_ini'], sic4dvar_dict['filtered_data']['node_x'], sic4dvar_dict['last_node_for_integral'], bathymetry_array, sic4dvar_dict['param_dict'], sic4dvar_dict['input_data']['reach_id'], sic4dvar_dict['filtered_data']['reach_t'], bb=sic4dvar_dict['bb'], reliability=sic4dvar_dict['reliability'], Qsdev=sic4dvar_dict['input_data']['reach_qsdev'], last_time_instant=last_time_instant, input_data=sic4dvar_dict['input_data'], time_indexes_to_keep=time_indexes_to_keep, friction_value=sic4dvar_dict['input_data']['friction_value'])
+            if sic4dvar_dict['output']['valid']:
+                logging.info(f'Estimated discharge with algo3.')
+                sic4dvar_dict['output']['stopped_stage'] = 'discharge'
             sic4dvar_dict['output']['z_bed'] = compute_z_bed(apr_array['node_w_simp'], sic4dvar_dict['filtered_data']['node_z'], bathymetry_array['node_xr'], bathymetry_array['node_yr'], sic4dvar_dict['output']['Zb_acc'])
             sic4dvar_dict['output']['apr_array'] = apr_array
             if sic4dvar_dict['param_dict']['gnuplot_saving']:
@@ -239,7 +266,7 @@ def sic4dvar_compute_discharge(sic4dvar_dict, params, flag_qwbm):
                     Q_REF = q_ref_ML[t]
 
                     def objective_function_brent(ZM):
-                        Q_EST, _, _ = modified_manning_integrated(bathymetry_array['node_xr'], bathymetry_array['node_yr'], apr_array['node_a'], apr_array['node_p'], Wmean, sic4dvar_dict['last_node_for_integral'], Zb2, ZB_update, Zb, t, sic4dvar_dict['filtered_data']['node_x'], SLOPEM1, ZM=ZM, KMI=sic4dvar_dict['output']['Kmi_acc'], option_recompute_area=True, sic4dvar_dict=sic4dvar_dict)
+                        Q_EST, _, _ = Z0(bathymetry_array['node_xr'], bathymetry_array['node_yr'], apr_array['node_a'], apr_array['node_p'], Wmean, sic4dvar_dict['last_node_for_integral'], Zb2, ZB_update, Zb, t, sic4dvar_dict['filtered_data']['node_x'], SLOPEM1, ZM=ZM, KMI=sic4dvar_dict['output']['Kmi_acc'], option_recompute_area=True, sic4dvar_dict=sic4dvar_dict)
                         return (Q_REF - Q_EST) ** 2
                     ZM_opt = minimize_scalar(objective_function_brent, bounds=(0.33, 3.0), method='bounded', options={'maxiter': 10}).x
                     ZM_opt_array.append(ZM_opt)
@@ -304,10 +331,10 @@ def sic4dvar_compute_discharge(sic4dvar_dict, params, flag_qwbm):
                 if params.experimental_run_MMI:
                     for t in range(0, len(t_ref)):
                         ZM = ZM_opt_array_new[t]
-                        Q_EST, _, _ = modified_manning_integrated(bathymetry_array['node_xr'], bathymetry_array['node_yr'], apr_array['node_a'], apr_array['node_p'], Wmean, sic4dvar_dict['last_node_for_integral'], Zb2, ZB_update, Zb, t, sic4dvar_dict['filtered_data']['node_x'], SLOPEM1, ZM=ZM, KMI=sic4dvar_dict['output']['Kmi_acc'], option_recompute_area=False, sic4dvar_dict=sic4dvar_dict)
+                        Q_EST, _, _ = Z0(bathymetry_array['node_xr'], bathymetry_array['node_yr'], apr_array['node_a'], apr_array['node_p'], Wmean, sic4dvar_dict['last_node_for_integral'], Zb2, ZB_update, Zb, t, sic4dvar_dict['filtered_data']['node_x'], SLOPEM1, ZM=ZM, KMI=sic4dvar_dict['output']['Kmi_acc'], option_recompute_area=False, sic4dvar_dict=sic4dvar_dict)
                         Q_EST_ARRAY.append(Q_EST[0])
                 else:
-                    Q_EST_ARRAY, sic4dvar_dict['output']['valid'], sic4dvar_dict['reliability'], sic4dvar_dict['output']['Kmi_acc'], sic4dvar_dict['output']['Zb_acc'] = algo3(apr_array, sic4dvar_dict['input_data']['reach_qwbm'], params, SLOPEM1, sic4dvar_dict['output']['valid'], sic4dvar_dict['filtered_data']['node_z'], sic4dvar_dict['input_data']['node_z'], sic4dvar_dict['input_data']['node_z_ini'], sic4dvar_dict['filtered_data']['node_x'], sic4dvar_dict['last_node_for_integral'], bathymetry_array, sic4dvar_dict['param_dict'], sic4dvar_dict['input_data']['reach_id'], sic4dvar_dict['filtered_data']['reach_t'], bb=sic4dvar_dict['bb'], reliability=sic4dvar_dict['reliability'], Qsdev=sic4dvar_dict['input_data']['reach_qsdev'], last_time_instant=last_time_instant, input_data=sic4dvar_dict['input_data'], time_indexes_to_keep=time_indexes_to_keep, ZM_array=ZM_opt_array_new)
+                    Q_EST_ARRAY, sic4dvar_dict['output']['valid'], sic4dvar_dict['reliability'], sic4dvar_dict['output']['Kmi_acc'], sic4dvar_dict['output']['Zb_acc'] = Z1(apr_array, sic4dvar_dict['input_data']['reach_qwbm'], params, SLOPEM1, sic4dvar_dict['output']['valid'], sic4dvar_dict['filtered_data']['node_z'], sic4dvar_dict['input_data']['node_z'], sic4dvar_dict['input_data']['node_z_ini'], sic4dvar_dict['filtered_data']['node_x'], sic4dvar_dict['last_node_for_integral'], bathymetry_array, sic4dvar_dict['param_dict'], sic4dvar_dict['input_data']['reach_id'], sic4dvar_dict['filtered_data']['reach_t'], bb=sic4dvar_dict['bb'], reliability=sic4dvar_dict['reliability'], Qsdev=sic4dvar_dict['input_data']['reach_qsdev'], last_time_instant=last_time_instant, input_data=sic4dvar_dict['input_data'], time_indexes_to_keep=time_indexes_to_keep, ZM_array=ZM_opt_array_new)
                 Q_EST_ARRAY = np.array(Q_EST_ARRAY)
                 sic4dvar_dict['output']['q_algo31'] = deepcopy(Q_EST_ARRAY)
                 if True:

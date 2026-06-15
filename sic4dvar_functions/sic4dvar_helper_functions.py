@@ -46,11 +46,11 @@ from lib.lib_indicators import compute_all_indicators_from_predict_true
 from lib.lib_log import call_error_message
 from lib.lib_netcdf import get_nc_variable_data
 from lib.lib_sos import get_station_q_and_qt
-from lib.lib_verif import reorder_ids_with_indices
+from lib.lib_verif import check_na, reorder_ids_with_indices
 from sic4dvar_functions import sic4dvar_calculations as calc
 from sic4dvar_functions.sic4dvar_gnuplot_save import gnuplot_save_q
 from sic4dvar_functions.helpers.helpers_arrays import find_n_nearest, find_nearest, get_index_valid_data, get_mask_nan_across_arrays, masked_array_to_nan_array, nan_array_to_masked_array
-from sic4dvar_functions.W207 import K
+from sic4dvar_functions.v76 import K
 from sic4dvar_functions.sic4dvar_calculations import verify_name_length
 from lib.lib_dates import seconds_to_time_str
 from sic4dvar_modules.sic4dvar_compute_slope_and_bathymetry import aggregate_node_bathy_to_reach, compute_wet_area
@@ -770,7 +770,13 @@ def get_sos_data(sos_file, reach_id, reach_t, param_dict):
             return (0, {})
     filtered_station_df = pd.DataFrame()
     if np.array(sos_dict['station_q']).size > 0 and sos_dict['station_q'].mask.all() != True:
-        q_mean, q_std, filtered_station_df = use_stations_for_q_prior(reach_t, sos_dict['station_q'], sos_dict['station_date'], reach_id, sos_dict['station_qt'], 'station')
+        ref = np.datetime64('2000-01-01')
+        swot_datetimes = ref + reach_t * np.timedelta64(1, 's')
+        datetimes_np = np.array(sos_dict['station_date'], dtype='datetime64[ns]')
+        ref = np.datetime64('2000-01-01')
+        sos_dict['station_time_in_days'] = (datetimes_np - ref) / np.timedelta64(1, 'D')
+        q_mean, q_std, filtered_station_df = use_stations_for_q_prior(swot_datetimes, sos_dict['station_q'], sos_dict['station_date'], sos_dict['station_time_in_days'])
+        sos_dict['filtered_station_df'] = filtered_station_df
         if filtered_station_df.empty:
             logging.warning(f'No valid station data after filtering for reach {reach_id}.')
             masked_data = np.ma.masked_values(np.array([np.nan]), value=-9999.0)
@@ -782,7 +788,7 @@ def get_sos_data(sos_file, reach_id, reach_t, param_dict):
                 sos_dataset.close()
                 return (0, {})
         else:
-            sos_dict['station_qt_2000'] = filtered_station_df['station_qt_2000'] / 86400
+            sos_dict['station_qt_2000'] = filtered_station_df['source_times_in_days'] / 86400
             sos_dict['station_df_used'] = filtered_station_df
             masked_data = np.ma.masked_values(np.array([q_mean]), value=-9999.0)
             sos_dict['q_mean_station'] = masked_data
@@ -823,9 +829,13 @@ def get_sos_data(sos_file, reach_id, reach_t, param_dict):
             valid_times_days = valid_times / 86400
             if valid_flow.size > 0 and valid_flow.mask.all() != True:
                 from lib.lib_dates import daynum_to_date
-                out_ml_date = daynum_to_date(valid_times_days, '2000-01-01')
-                q_mean, q_std, filtered_ml_df = use_stations_for_q_prior(reach_t, valid_flow, out_ml_date, reach_id, valid_times_days, 'ML', param_dict)
-                sos_dict['ML_qt_2000'] = filtered_ml_df['ML_qt_2000']
+                ref = np.datetime64('2000-01-01')
+                swot_datetimes = ref + reach_t * np.timedelta64(1, 's')
+                ml_days = np.array(valid_times_days)
+                ref = np.datetime64('2000-01-01')
+                datetimes_np = ref + ml_days * np.timedelta64(1, 'D')
+                q_mean, q_std, filtered_ml_df = use_stations_for_q_prior(swot_datetimes, valid_flow, datetimes_np, ml_days)
+                sos_dict['ML_qt_2000'] = filtered_ml_df['source_times_in_days']
                 sos_dict['ML_df'] = filtered_ml_df
                 masked_data = np.ma.masked_values(np.array([q_mean]), value=-9999.0)
                 sos_dict['q_mean_ML'] = masked_data
@@ -1135,12 +1145,11 @@ def write_output(output_path, param_dict, reach_id, output_dict, reach_number=0,
     Kmi_acc.description = 'estimated friction coefficient (m^(1/3)/s)'
     if 'Kmi_acc' in output_dict.keys():
         Kmi_acc[:] = output_dict['Kmi_acc']
-    else:
-        Kmi_acc[:] = np.nan
-    if param_dict['write_bathymetry']:
-        write_bathymetry_data(out_nc, output_dict, fill_value, nb_pts_bathy_max=nb_pts_bathy_max)
-    if param_dict['write_densification']:
-        write_densification_groups(out_nc, output_dict, fill_value)
+    if output_dict['stopped_stage'] != 'init':
+        if param_dict['write_bathymetry']:
+            write_bathymetry_data(out_nc, output_dict, fill_value, nb_pts_bathy_max=nb_pts_bathy_max)
+        if param_dict['write_densification']:
+            write_densification_groups(out_nc, output_dict, fill_value)
     if param_dict['gnuplot_saving']:
         reach_id = str(reach_id)
         output_dir = output_path.parent.joinpath('gnuplot_data', reach_id)
@@ -1174,6 +1183,18 @@ def write_algo5_params(out_nc, nc_dict, algo5_results, reach_number, output_dict
         node_n = output_dict.get('node_n', [])
         nc_dict['A0'].assignValue(node_a0[reach_number] if node_a0 and reach_number < len(node_a0) else np.nan)
         nc_dict['n'].assignValue(node_n[reach_number] if node_n and reach_number < len(node_n) else np.nan)
+    if params.tmp_write_to_A0_and_n:
+        if 'Kmi_acc' in output_dict.keys() and 'Zb_acc' in output_dict.keys():
+            if check_na(output_dict['Kmi_acc']) and check_na(output_dict['Zb_acc']):
+                nc_dict['n'].assignValue(output_dict['Kmi_acc'])
+                nc_dict['A0'].assignValue(output_dict['Zb_acc'])
+                logging.warning('Kmi_acc or Zb_acc contains NaN')
+            else:
+                nc_dict['n'].assignValue(output_dict['Kmi_acc'][-1])
+                nc_dict['A0'].assignValue(output_dict['Zb_acc'][-1])
+                logging.info('Temporarily writing Kmi_acc and Zb_acc to A0 and n.')
+        else:
+            logging.warning('Kmi_acc and Zb_acc not found in output_dict for temporary writing to A0 and n.')
     for key in nc_dict.keys():
         logging.info(f'{key}: {nc_dict[key][:]}')
 
@@ -1213,6 +1234,9 @@ def write_bathymetry_data(out_nc, output_dict, fill_value, nb_pts_bathy_max):
             else:
                 dry_area_data = change_info_for_bathy(output_dict['apr_array']['node_a'], len(output_dict['apr_array']['node_a'][0]), output_dict.get('node_id', []), output_dict.get('observed_nodes', []))
                 hydraulic_radius_data = change_info_for_bathy(output_dict['apr_array']['node_r'], len(output_dict['apr_array']['node_r'][0]), output_dict.get('node_id', []), output_dict.get('observed_nodes', []))
+        else:
+            dry_area_data = np.full((len(output_dict.get('node_id', np.array([]))), len(output_dict['q_algo31'])), np.nan)
+            hydraulic_radius_data = np.full((len(output_dict.get('node_id', np.array([]))), len(output_dict['q_algo31'])), np.nan)
     else:
         n_nodes = len(output_dict.get('node_id', np.array([])))
         width_data = np.full((n_nodes, nb_pts_bathy_max), np.nan)
@@ -1518,7 +1542,57 @@ def correlation_nodes(node_z, ref_node, reach_id):
     indicators_node_df.to_csv(Path('/home/kabey/Bureau/worksync/Pankaj_Ganga/output/nodes_corr_z' + '.csv'), index=True, sep=';')
     print(bug2)
 
-def use_stations_for_q_prior(reach_t, station_q, station_qt, reach_id=[], station_qt2=[], option='station', param_dict=[], option2=1, additional_t=[]):
+def use_stations_for_q_prior(pred_times, source_discharge, source_times, source_times_in_days):
+    df = pd.DataFrame({'source_times': source_times, 'source_q': source_discharge, 'source_times_in_days': source_times_in_days})
+    pred_times_array = np.ma.asarray(pred_times)
+    if np.ma.isMaskedArray(pred_times_array):
+        pred_times_values = pred_times_array.compressed()
+    else:
+        pred_times_values = np.asarray(pred_times_array).ravel()
+    pred_times_series = pd.Series(pred_times_values, name='pred_times')
+    pred_times_series = pd.to_datetime(pred_times_series, errors='coerce').dropna()
+    if pred_times_series.size < 1:
+        logging.warning(call_error_message(503))
+        return (-9999.0, -9999.0, pd.DataFrame())
+    result = []
+    tmp_option = 1
+    if tmp_option == 0:
+        ref = np.datetime64('2000-01-01')
+        seconds_since_2000 = (pred_times_series - ref) / np.timedelta64(1, 's')
+        swot_days = np.array(seconds_since_2000 / 86400).astype(int)
+        swot_df = pd.DataFrame({'pred_times': pred_times_series, 'source_times_in_days': swot_days})
+        filtered_df = pd.merge(df, swot_df, on='source_times_in_days', how='inner')
+    elif tmp_option == 1:
+        if not params.force_specific_dates:
+            start_date = pred_times_series.min()
+            end_date = pred_times_series.max()
+        else:
+            start_date = params.start_date.date()
+            end_date = params.end_date.date()
+        filtered_df = df[(df['source_times'] >= start_date) & (df['source_times'] <= end_date)]
+        filtered_df = filtered_df.dropna(subset=['source_q'], how='all')
+        if len(filtered_df['source_q']) < 2:
+            logging.warning(call_error_message(502))
+            return (-9999.0, -9999.0, pd.DataFrame())
+        if False:
+            if params.smoothing_prior:
+                cor_radius_t = (sic_df['sic4dvar_t'].iloc[-1] - sic_df['sic4dvar_t'].iloc[0]) / (len(sic_df) - 1) / 86400
+                discharge_smoothed_2D = []
+                for n in range(0, 2):
+                    discharge_smoothed_2D.append(filtered_station_df['station_q'])
+                discharge_smoothed_2D = np.array(discharge_smoothed_2D)
+                discharge_smoothed_2D = K(dim=0, value0_array=discharge_smoothed_2D, base0_array=np.array(filtered_station_df[string]), max_iter=1, cor=cor_radius_t, always_run_first_iter=True, behavior='', inter_behavior=False, inter_behavior_min_thr=params.def_float_atol, inter_behavior_max_thr=params.DX_max_in, check_behavior='', min_change_v_thr=0.0001, plot=False, plot_title='', clean_run=True, debug_mode=False, time_integration=False)
+                discharge_smoothed = discharge_smoothed_2D[0]
+                filtered_station_df['station_q'] = discharge_smoothed
+    from lib.lib_indicators import integrated_mean, integrated_variance
+    source_q_arr = filtered_df['source_q'].to_numpy()
+    source_t_arr = filtered_df['source_times_in_days'].to_numpy()
+    q_mean = integrated_mean(source_q_arr, source_t_arr)
+    q_std = integrated_variance(source_q_arr, source_t_arr, q_mean)
+    logging.debug('Computed station prior stats: q_mean=%s q_std=%s', q_mean, q_std)
+    return (q_mean, q_std, filtered_df)
+
+def use_stations_for_q_prior_old(reach_t, station_q, station_qt, reach_id=[], station_qt2=[], option='station', param_dict=[], option2=1, additional_t=[]):
     station_df = pd.DataFrame({'station_date': station_qt, 'station_q': station_q, 'station_qt': station_qt2})
     if option == 'station':
         epoch_0001 = datetime(1, 1, 1)
@@ -1613,7 +1687,7 @@ def use_stations_for_q_prior(reach_t, station_q, station_qt, reach_id=[], statio
             for n in range(0, 2):
                 discharge_smoothed_2D.append(filtered_station_df['station_q'])
             discharge_smoothed_2D = np.array(discharge_smoothed_2D)
-            discharge_smoothed_2D = K(dim=0, value0_array=discharge_smoothed_2D, base0_array=np.array(filtered_station_df[string]), max_iter=1, cor=cor_radius_t, always_run_first_iter=True, behaviour='', inter_behaviour=False, inter_behaviour_min_thr=params.def_float_atol, inter_behaviour_max_thr=params.DX_max_in, check_behaviour='', min_change_v_thr=0.0001, plot=False, plot_title='', clean_run=True, debug_mode=False, time_integration=False)
+            discharge_smoothed_2D = K(dim=0, value0_array=discharge_smoothed_2D, base0_array=np.array(filtered_station_df[string]), max_iter=1, cor=cor_radius_t, always_run_first_iter=True, behavior='', inter_behavior=False, inter_behavior_min_thr=params.def_float_atol, inter_behavior_max_thr=params.DX_max_in, check_behavior='', min_change_v_thr=0.0001, plot=False, plot_title='', clean_run=True, debug_mode=False, time_integration=False)
             discharge_smoothed = discharge_smoothed_2D[0]
             filtered_station_df['station_q'] = discharge_smoothed
     for t in range(1, len(filtered_station_df[string])):

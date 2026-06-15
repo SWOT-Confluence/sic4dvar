@@ -7,7 +7,7 @@ import scipy
 import sic4dvar_params as params
 from lib.lib_dates import get_swot_dates, seconds_to_date_old
 from lib.lib_swot_obs import filter_swot_obs_on_quality, get_flag_dict_from_config
-from sic4dvar_algos.algo3 import *
+from sic4dvar_algos.s157 import *
 from sic4dvar_algos.algo5 import *
 from sic4dvar_functions.sic4dvar_calculations import compute_bb, verify_name_length
 from sic4dvar_functions.sic4dvar_helper_functions import build_output_q_masked_array, correlation_nodes, get_weighted_q_data

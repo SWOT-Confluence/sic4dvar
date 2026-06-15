@@ -10,8 +10,9 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 import sic4dvar_params as params
 from sic4dvar_functions.sic4dvar_gnuplot_save import gnuplot_save, gnuplot_save_list, gnuplot_save_slope
-from sic4dvar_functions.sic4dvar_calculations import check_na, verify_name_length, compute_bb, fnc_APR, f_approx_sections_v6, M
-from sic4dvar_functions.W207 import K
+from sic4dvar_functions.sic4dvar_calculations import check_na, verify_name_length, compute_bb, fnc_APR, f_approx_sections_v6
+from sic4dvar_functions.v76 import K
+from sic4dvar_functions.cs.g515 import M
 try:
     from Confluence.input.input.extract.CalculateHWS import CalculateHWS
     from Confluence.input.input.extract.DomainHWS import DomainHWS
@@ -26,7 +27,7 @@ def create_confluence_dict(reach_time, reach_z, reach_w, reach_s):
     ObsData['xkm'] = np.nan
     ObsData['L'] = np.nan
     ObsData['nt'] = len(reach_time)
-
+    '\n    ts = reach_time.data #swot_dataset["time"].values\n    epoch = datetime.datetime(2000,1,1,0,0,0)\n    tall = []\n    for t in ts:\n        if t > 0:\n            delta = epoch + datetime.timedelta(seconds=t)\n            tall.append(delta.timestamp())\n        else:\n            tall.append(0)\n   \n    # tall = [ epoch + datetime.timedelta(seconds=t) if t > 0 else 0 for t in ts]\n    '
     ObsData['t'] = reach_time
     ObsData['h'] = np.empty((ObsData['nR'], ObsData['nt']))
     ObsData['h0'] = np.empty((ObsData['nR'], 1))
@@ -40,7 +41,7 @@ def create_confluence_dict(reach_time, reach_z, reach_w, reach_s):
     ObsData['sigw'] = 10.0
     ObsData['sigS'] = 1.7e-05
     ObsData['iDelete'] = np.where(np.isnan(ObsData['w'][0, :]) | np.isnan(ObsData['h'][0, :]))
-
+    "\n    iUse = logical_not(isnan(ObsData['w'][0,:]) |                         isnan(ObsData['h'][0,:]))\n\n    self.SubSelectData(iUse)\n    "
     return ObsData
 
 def call_func_APR(node_w, node_z, node_xr, node_yr, params, param_dict, coeff_array=[], t=-1.0):
@@ -145,7 +146,7 @@ def slope_computation(sic4dvar_dict):
             if len(sic4dvar_dict['filtered_data']['node_z']) >= 3:
                 SS1 = sic4dvar_dict['filtered_data']['node_z'][0][t]
                 SS2 = sic4dvar_dict['filtered_data']['node_z'][-1][t]
-
+                '\n                # H.O. : Modification.\n                if not params.node_length:\n                    if abs(self.filtered_data[\'node_x\'][2]-self.filtered_data[\'node_x\'][0])>params.DX_Length: #modif D.Q\n                        params.DX_Length = abs(self.filtered_data[\'node_x\'][2]-self.filtered_data[\'node_x\'][0])\n                    index_x = np.where(abs(self.filtered_data[\'node_x\'][0]-self.filtered_data[\'node_x\'][0:])<=params.DX_Length)\n                    print("index_x=",index_x)\n                    print(abs(self.filtered_data[\'node_x\'][0]-self.filtered_data[\'node_x\'][0:]))\n                    print("DX_length=",params.DX_Length)\n                elif params.node_length:\n                    """\n                    temp=[]\n                    temp_sum=0\n                    for i in range(0,self.filtered_data[\'node_x\'].size):\n                        temp_sum = temp_sum + self.filtered_data[\'node_x\'][i]\n                        temp.append(temp_sum)\n                    """\n                    print(self.filtered_data[\'node_x\'][0]-self.filtered_data[\'node_x\'][0:])\n                    print(self.filtered_data[\'node_x\'][0]-temp[0:])\n                    index_x = np.where(abs(self.filtered_data[\'node_x\'][0]-temp[0:])<params.DX_Length)\n                    print("index_x=",index_x)\n                '
                 sic4dvar_dict['last_node_for_integral'] = len(sic4dvar_dict['filtered_data']['node_z'])
             SLOPEM1[t] = SS1 - SS2
         if sic4dvar_dict['param_dict']['gnuplot_saving']:
@@ -158,7 +159,15 @@ def slope_computation(sic4dvar_dict):
     return (SLOPEM1, sic4dvar_dict)
 
 def compute_widths_from_breakpoints(height_breakpoints, poly_fits):
-
+    """
+    Given height breakpoints and corresponding polynomial fits (slope + intercept),
+    return a list of (height, width) values at each breakpoint.
+    
+    Assumes:
+    - height_breakpoints has N+1 values
+    - poly_fits has N polynomials (1 per interval)
+    - last height_breakpoint is included in last segment
+    """
     height_breakpoints = np.array(height_breakpoints)
     widths = []
     for i in range(len(height_breakpoints)):
@@ -221,7 +230,8 @@ def bathymetry_computation(node_w, node_z, param_dict, params, input_data=[], fi
             if cs_method == 'POM':
                 results = f_approx_sections_v6(node_w[i], node_z[i], params.approx_section_params[0], params.approx_section_params[1], params.approx_section_params[2])
             elif cs_method == 'Igor':
-                results = M(node_w[i], node_z[i], max_iter=params.LSMX, cor_z=None, inter_behavior=True, inter_behavior_min_thr=params.def_float_atol, inter_behavior_max_thr=params.DX_max_in, min_change_v_thr=0.0001, first_sweep='forward', cs_float_atol=params.def_float_atol, number_of_nodes=len(node_z), plot=False)
+                cs_i_w_low_bound0_array = np.ones(len(node_w[i])) * 10.0
+                results = M(node_w[i], node_z[i], max_iter=params.LSMX, cor_z=None, inter_behavior=True, inter_behavior_min_thr=params.def_float_atol, inter_behavior_max_thr=params.DX_max_in, min_change_v_thr=0.0001, first_sweep='forward', cs_float_atol=params.def_float_atol, number_of_nodes=len(node_z), plot=False, cs_i_w_low_bound0_array=cs_i_w_low_bound0_array)
                 results = f_approx_sections_v6(results[0], results[1], params.approx_section_params[0], params.approx_section_params[1], FSort=0)
             elif cs_method == 'Mike' and Confluence_HWS_method:
                 results, _ = mike_method(param_dict, filtered_data, node_z, node_w, i, slope, algo, input_data)
@@ -285,21 +295,24 @@ def compute_slope(sic4dvar_dict, params):
         if params.slope_smooth_wse_ranking:
             array_to_use, SLOPEM1_reordered, increasing_index, wse_mean = slope_modification(sic4dvar_dict['filtered_data']['node_z'], SLOPEM1)
             correlation = (array_to_use[-1] - array_to_use[0]) / array_to_use.shape[0]
-            behaviour = 'increase'
-            inter_behaviour = True
+            behavior = 'increase'
+            inter_behavior = True
         else:
             correlation = sic4dvar_dict['cort_slope']
             array_to_use = sic4dvar_dict['filtered_data']['reach_t']
             SLOPEM1_reordered = SLOPEM1
-            behaviour = ''
-            inter_behaviour = False
+            behavior = ''
+            inter_behavior = False
         SLOPEM1_2D = []
         for n in range(0, len(sic4dvar_dict['filtered_data']['node_z'])):
             SLOPEM1_2D.append(SLOPEM1_reordered)
         SLOPEM1_2D = np.array(SLOPEM1_2D)
-        SLOPEM1_2D = K(dim=0, value0_array=SLOPEM1_2D, base0_array=array_to_use, max_iter=params.slope_smooth_max_iter, cor=correlation, always_run_first_iter=False, behaviour=behaviour, inter_behaviour=inter_behaviour, inter_behaviour_min_thr=params.def_float_atol, inter_behaviour_max_thr=params.DX_max_in, check_behaviour='', min_change_v_thr=0.0001, plot=False, plot_title='', clean_run=True, debug_mode=False)
+        SLOPEM1_2D = K(dim=0, value0_array=SLOPEM1_2D, base0_array=array_to_use, max_iter=params.slope_smooth_max_iter, cor=correlation, always_run_first_iter=False, behavior=behavior, inter_behavior=inter_behavior, inter_behavior_min_thr=params.def_float_atol, inter_behavior_max_thr=params.DX_max_in, check_behavior='', min_change_v_thr=0.0001, plot=False, plot_title='Relaxation sweep in time SLOPEM1 without Interchange', clean_run=True, debug_mode=False)
         tmp = deepcopy(SLOPEM1)
+        print('SLOPEM1 before:', SLOPEM1)
         SLOPEM1 = SLOPEM1_2D[0]
+        print('SLOPEM1 after:', SLOPEM1)
+        print('diff:', SLOPEM1 - tmp, 'mean:', np.mean(SLOPEM1))
         if params.slope_smooth_wse_ranking:
             tmp_slope = []
             for t in range(0, len(SLOPEM1)):
@@ -390,7 +403,15 @@ def compute_bathymetry(sic4dvar_dict, params, SLOPEM1):
     return (sic4dvar_dict, bathymetry_array, apr_array)
 
 def compute_relative_elevation(elev_2D):
+    """
+    Compute relative elevation for each node's bathymetry profile.
+    
+    Parameters
+    ----------
+    elev_2D : np.ndarray
+        2D array of elevation values (n_nodes, n_pts)
 
+    """
     if len(elev_2D.shape) > 1:
         node_elev_min = np.nanmin(elev_2D, axis=1, keepdims=True)
     else:
@@ -399,12 +420,33 @@ def compute_relative_elevation(elev_2D):
     return (elev_rel_2D, node_elev_min)
 
 def compute_absolute_elevation(elev_rel, node_elev_min):
-
+    """
+    Docstring pour compute_absolute_elevation
+    
+    :param elev_rel_2D: Description
+    :param node_elev_min: Description
+    """
     elev_abs = elev_rel + node_elev_min
     return elev_abs
 
 def shift_bathy_profile_to_fit_global_mean(elev_rel_2D, width_2D):
-
+    """
+    Shift each node's bathymetry profile so its mean elevation matches the global mean.
+    
+    Parameters
+    ----------
+    elev_2D : np.ndarray
+        2D array of elevation values (n_nodes, n_pts)
+    width_2D : np.ndarray
+        2D array of width values (n_nodes, n_pts)
+    
+    Returns
+    -------
+    elev_norm : np.ndarray
+        Normalized elevation values (n_nodes, n_pts)
+    width_2D : np.ndarray
+        Width values unchanged (n_nodes, n_pts)
+    """
     n_nodes = elev_rel_2D.shape[0]
     global_mean = np.nanmean(elev_rel_2D)
     elev_rel_norm = np.zeros_like(elev_rel_2D)
@@ -423,7 +465,28 @@ def compute_sigma_bounds(elev):
     return (elev_rel_min, elev_rel_max)
 
 def aggregate_node_bathy_to_reach(elev_2D, width_2D, option='2sigma', nb_points=10):
-
+    """
+    Aggregate node-level bathymetry to reach-level by interpolating and averaging.
+    
+    Parameters
+    ----------
+    elev_2D : np.ndarray
+        2D array of elevation values (n_nodes, n_pts)
+    width_2D : np.ndarray
+        2D array of width values (n_nodes, n_pts)
+    option : str
+        'all' - use full elevation range (min to max across all nodes)
+        'common' - use common elevation range (max of mins to min of maxs)
+    nb_points : int
+        Number of elevation points for interpolation
+    
+    Returns
+    -------
+    reach_width : np.ndarray
+        Averaged width values at each elevation (nb_points,)
+    reach_elev : np.ndarray
+        Elevation values (nb_points,)
+    """
     n_nodes = elev_2D.shape[0]
     reach_elev_abs = np.nanmean(elev_2D)
     elev_rel_2D, node_elev_min = compute_relative_elevation(elev_2D)

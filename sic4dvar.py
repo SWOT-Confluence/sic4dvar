@@ -80,14 +80,13 @@ def main():
     args_dict = vars(args)
     for key in explicit_args:
         param_dict[key] = args_dict[key]
-
     if param_dict['log_level'].upper() not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+        print(f"Invalid log level '{param_dict['log_level']}' : set to INFO")
         param_dict['log_level'] = 'INFO'
-    append_to_principal_log(param_dict, f"Invalid log level '{param_dict['log_level']}' : set to INFO")
-
     param_dict['log_path'] = param_dict['log_dir'].joinpath('sic4dvar.log')
     if not param_dict['output_dir'].exists():
         param_dict['output_dir'].mkdir(parents=True, exist_ok=True)
+    append_to_principal_log(param_dict, f"Invalid log level '{param_dict['log_level']}' : set to INFO")
     append_to_principal_log(param_dict, 'Running SIC4DVAR low cost')
     if param_dict['aws'] and 'json_path' not in param_dict:
         param_dict['json_path'] = Path(param_dict['input_dir'], 'reaches.json')

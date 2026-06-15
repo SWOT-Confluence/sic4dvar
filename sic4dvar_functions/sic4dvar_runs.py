@@ -41,7 +41,7 @@ from sic4dvar_functions import sic4dvar_calculations as calc
 from sic4dvar_functions.sic4dvar_calculations import verify_name_length
 from sic4dvar_functions.sic4dvar_helper_functions import enable_prints, get_input_data, get_reach_dataset, global_large_deviations_removal, write_output
 from sic4dvar_functions.sic4dvar_gnuplot_save import gnuplot_save_q_station
-from sic4dvar_functions.W207 import K
+from sic4dvar_functions.v76 import K
 from sic4dvar_modules.sic4dvar_launcher import sic4dvar_compute_discharge, sic4dvar_preprocessing, sic4dvar_set_prior
 from sic4dvar_modules.sic4dvar_prepare import prepare_params
 
@@ -77,7 +77,6 @@ def seq_run_modules(param_dict, reach_dict):
         logging.info('Processing reach: ' + str(reach_dict['reach_id']))
         logging.info('Running reach %d' % reach_dict['reach_id'])
         input_data, flag_dict = get_input_data(param_dict, reach_dict)
-        sic4dvar_dict = {'output': {'valid': False, 'valid_a5': False, 'time': np.array([]), 'q_algo31': np.array([])}, 'algo5_results': {}, 'bb': -9999.0, 'reliability': 'invalid'}
         if type(input_data) != int:
             params.valid_min_z = input_data['valid_min_z']
             params.valid_min_dA = input_data['valid_min_dA']
@@ -88,7 +87,7 @@ def seq_run_modules(param_dict, reach_dict):
                 sic4dvar_dict, flag_qwbm = sic4dvar_set_prior(sic4dvar_dict)
                 sic4dvar_dict = sic4dvar_compute_discharge(sic4dvar_dict, params, flag_qwbm)
             else:
-                logging.debug('Skipping SIC4DVAR processing due to invalid initial data.')
+                logging.info('Skipping SIC4DVAR processing due to invalid initial data.')
             if sic4dvar_dict['output']['valid']:
                 logging.info('Results are valid !')
                 if 'station_q' in input_data.keys() and 'station_date' in input_data.keys():
@@ -140,7 +139,7 @@ def seq_run_modules(param_dict, reach_dict):
                             Q_a31_2D = np.ones((len(qa31_t), len(qa31_t))) * np.nan
                             for t in range(0, len(qa31_t)):
                                 Q_a31_2D[t, :] = Q_a31
-                            Q_a31_2D = K(dim=0, value0_array=Q_a31_2D, base0_array=np.array(qa31_t), max_iter=params.LSMT, cor=cor_test, always_run_first_iter=False, behaviour='', inter_behaviour=False, inter_behaviour_min_thr=params.def_float_atol, inter_behaviour_max_thr=params.DX_max_in, check_behaviour='', min_change_v_thr=0.0001, plot=False, plot_title='', clean_run=True, debug_mode=False, time_integration=True)
+                            Q_a31_2D = K(dim=0, value0_array=Q_a31_2D, base0_array=np.array(qa31_t), max_iter=params.LSMT, cor=cor_test, always_run_first_iter=False, behavior='', inter_behavior=False, inter_behavior_min_thr=params.def_float_atol, inter_behavior_max_thr=params.DX_max_in, check_behavior='', min_change_v_thr=0.0001, plot=False, plot_title='Relaxation sweep in time for Q31 estimate without Interchange', clean_run=True, debug_mode=False, time_integration=True)
                             Q_a31 = deepcopy(Q_a31_2D[0])
                             Q_a31_std = 0.0
                             for t in range(1, len(sic4dvar_df['sic4dvar_qt'])):
@@ -172,9 +171,15 @@ def seq_run_modules(param_dict, reach_dict):
         else:
             logging.info(f'Data not suitable to estimate discharge for reach {reach_dict['reach_id']}. Skipping SIC4DVAR processing.')
             append_to_principal_log(param_dict, f'status of reach {reach_dict['reach_id']} : 1')
-            if sic4dvar_dict['output']['time'].size == 0:
-                param_dict['write_bathymetry'] = False
-                param_dict['write_densification'] = False
+            sic4dvar_dict = {}
+            sic4dvar_dict['output'] = {}
+            sic4dvar_dict['algo5_results'] = {}
+            sic4dvar_dict['bb'] = -9999.0
+            sic4dvar_dict['reliability'] = 'invalid'
+            sic4dvar_dict['output']['valid'] = False
+            sic4dvar_dict['output']['time'] = np.full(1, np.nan)
+            sic4dvar_dict['output']['q_algo31'] = np.full(1, np.nan)
+            sic4dvar_dict['output']['stopped_stage'] = 'init'
             write_output(output_path, param_dict, reach_dict['reach_id'], sic4dvar_dict['output'], algo5_results=sic4dvar_dict['algo5_results'], bb=sic4dvar_dict['bb'], reliability=sic4dvar_dict['reliability'])
         close_logger(param_dict)
     except Exception as e:
@@ -599,6 +604,7 @@ def prepare_reaches(input_data, filtered_data, i):
     reach_dict['node_z'][:] = np.nan
     reach_dict['node_t'] = np.empty((len(reach_node_x), len(input_data['separate_reach_t'][i])))
     reach_dict['node_t'][:] = np.nan
+    '\n    for n in range(0, filtered_data["node_t"].shape[0]):\n        reach_dict["node_t"][n]=input_data["separate_reach_t"][i]\n    '
     for n in range(0, reach_dict['node_t'].shape[0]):
         reach_dict['node_t'][n] = input_data['separate_reach_t'][i]
     for n in range(0, filtered_data['node_t'].shape[0]):

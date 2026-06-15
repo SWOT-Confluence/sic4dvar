@@ -29,7 +29,6 @@ import logging
 import inspect
 from pathlib import Path
 import matplotlib.pyplot as plt
-from sic4dvar_functions.cs.k813 import M
 from lib.lib_verif import verify_name_length, check_na
 
 def ManningLW(a0, abar, w, s, n):
@@ -39,14 +38,53 @@ def DarcyW(a0, abar, w, s, cf):
     return 1 / math.pow(cf, 1 / 2) * math.pow(a0 + abar, 3 / 2) * math.pow(w, -1 / 2) * math.pow(9.81 * abs(s), 1 / 2)
 
 def ManningVK(a0, abar, w, s, alpha, beta, z=[]):
-
+    """
+    global A_ref W_ref Z_ref S_ref
+    A0=x(1);
+    a=x(2);
+    b=x(3);
+    h=Z_ref-min(Z_ref)+A0./W_ref; % Profondeur, après ajout de la partie wet bathy qui est sous le niveau observé le plus bas
+    n=a.*h.^b;
+    if A0<0
+        A0=0;
+    end
+    n(n<0.0001)=0.0001;
+    n(n>1)=1;
+    % if n<0.0001
+    %     n=0.0001;
+    % end
+    % if n>1
+    %     n=1;
+    % end
+    Q=1./n.*(A0+A_ref).^(1.6667).*W_ref.^(-0.6667).*sqrt(abs(S_ref)).*sign(S_ref);
+    end
+    """
     w = np.maximum(10, w)
     h = (a0 + abar) / w
     n = alpha * h ** beta
     return ManningLW(a0, abar, w, s, n)
 
 def objective_internal_data_Q_any(_x, *_params):
+    """
+    Objective function to be minimized by scipy optimizers. Equation is 
+    Mannings' flow law: 
+        min f(A_bar, n) = sum (Q - n^-1 * (A_bar + A')^(5/3) * W^(-2/3) * S^(1/2))^2
+     All observations (e.g. Q, A', W, S) are considered using sum of squared 
+     differences.
 
+    Parameters
+    ----------
+    _x : 1x2 sized tuple
+        [A_bar, n], contains initial guesses of A_bar & n.
+    *_params : nx4 sized tuple
+        [Q, A', W, S.], contains times series observations of Q, A', W, S.
+
+    Returns
+    -------
+    sum : double
+        DESCRIPTION.
+
+    """
     parameters_dict = {'q': _params[1][0], 'abar': _params[1][1], 'w': _params[1][2], 's': _params[1][3]}
     if len(_params[1]) > 4:
         parameters_dict['z'] = _params[1][4]
@@ -79,7 +117,21 @@ def objective_internal_data_Q_any(_x, *_params):
     return sum
 
 def check_suitability(_n, _A_bar, _A_prime, _W, _S):
+    """
+    Ensure that input values to mannings flow law are compatible.
+    Asserts error if not.
 
+    Parameters
+    ----------
+    _A_bar : float
+        Average area of the reach [m^2].
+    _A_prime : float
+        Change in river area relative to average [m^2].
+    _W : float
+        River/reach width [m]. 
+    _S : float
+        River/reach slope [m/km].
+    """
     if _n < 0:
         print('_n < 0')
         return False
@@ -94,7 +146,21 @@ def check_suitability(_n, _A_bar, _A_prime, _W, _S):
     return True
 
 def check_suitability_any(bounds_dict, parameters_dict, equation, t):
+    """
+    Ensure that input values to mannings flow law are compatible.
+    Asserts error if not.
 
+    Parameters
+    ----------
+    _A_bar : float
+        Average area of the reach [m^2].
+    _A_prime : float
+        Change in river area relative to average [m^2].
+    _W : float
+        River/reach width [m]. 
+    _S : float
+        River/reach slope [m/km].
+    """
     params_func = inspect.signature(globals()[equation]).parameters
     param_names = list(params_func.keys())
     function_params = np.zeros(len(param_names))
@@ -141,7 +207,23 @@ def check_suitability_any(bounds_dict, parameters_dict, equation, t):
     return True
 
 def filter_pom(weights, Y1, idist):
+    """[summary]
 
+    Parameters
+    ----------
+    weights : [type]
+        Weight for filtering.
+    Y1 : [type]
+        Data series to filter.
+    idist : [type]
+        Taking into account (1, 2, 3 or 4) or not (0) of the distance to the point
+        to filter. 1: distance and weights are combied; 2: use just the distance.
+
+    Returns
+    -------
+    Y2 : [type]
+        Filtered data series.
+    """
     nbw = weights.size
     nby = Y1.size
     ymax = Y1.max()
@@ -182,7 +264,52 @@ def filter_pom(weights, Y1, idist):
     return Y2
 
 def f_approx_sections_v6(X, Y, NbIter=4, SeuilDistance=0.1, FSort=2):
+    """[summary]
 
+    Parameters
+    ----------
+    X : numpy 1xN array
+        Abscissa coordinates.
+    Y : numpy 1xN array
+        Bank coordinates.
+    NbIter : [type]
+        Optional. Num. of points supplementary points to add. 
+    SeuilDistance : [type]
+        Optional. Threshold for max distance. If >0, it will be 
+        used in the stopping criteria. Otherwise, NbIter will be used.
+    FSort : [type]
+        Method for sorting:
+            0: Don't order,
+            1: Order X & Y based on the order of Y,
+            2: Order X & Y separetely. Uniformity is forced,
+            3: Same as option 2 but use the order of X instead of Y,
+            4: Start w/ a polynominal interpolation,
+            5: Smooth around the points with a function "filter", only X.
+            6: Smooth around the points with a function "filter_pom", only X.
+            7: Smooth around the points with a function "filter_pom", X & Y.
+            8: Smooth around the points with a function "smooth(rloess)", X & Y. Then order results.
+    Returns
+    -------
+    Xr : [type]
+        Abscissa coordinates reduced to essential points, half width.
+    Yr : [type]
+        Bank coordinates reduced to essential points, elevation.
+    C : [type]
+        Curvilinear abscissa (changed from P to avoid conflicts w/ wetted perimeter) 
+        of various points from the first.
+    N : [type]
+        Nodes held among the initial X & Y, et their order of selection.
+    D : [type]
+        Distance of points with regard to the linear segments.
+    dmax : [type]
+        Max. distance to differentes iterative steps.
+    Err : [type]
+        Error flags
+    Xt : [type]
+        Abscissa coordinates after classifying.
+    Yt : [type]
+        Bank coordinates after classifying.
+    """
     debug = 0
     dmax = []
     list_to_keep = []
