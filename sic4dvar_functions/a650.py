@@ -1,35 +1,10 @@
-"""
-SIC4DVAR-LC
-Copyright (C) 2025 INRAE
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-Created in September 2022
-by @Hind Oubanas
-
-Last modified on February 15th 2024 at 13:30
-by @Isadora Silva
-
-@authors: Dylan Quittard, Hind Oubanas, Igor G., Isadora Silva
-"""
 Q = 'node'
 L = 'width'
 K = 'wse'
 P = range
 d = 'invalid value encountered'
 c = 'ignore'
-b = ''
+b = 'interpolation: trying to fill point {} at time '
 a = str
 S = TypeError
 H = 0.0
@@ -38,9 +13,9 @@ C = AssertionError
 B = False
 import copy as M, warnings as N, numpy as A
 from sic4dvar_classes.sic4dvar_0_defaults import SIC4DVarLowCostDefaults as D
-from sic4dvar_functions.s117 import b as x
+from sic4dvar_functions.l332 import b as x
 from sic4dvar_functions.helpers.helpers_arrays import masked_array_to_nan_array as O, nan_array_to_masked_array as G, find_nearest as T
-from sic4dvar_functions.j211 import D as U
+from sic4dvar_functions.j983 import D as U
 from pathlib import Path
 from sic4dvar_functions.io.reader_swot_obs import get_vars_from_swot_nc as R
 
@@ -53,7 +28,7 @@ def Y(values0_array, space0_array, clean_run=B):
     if C.ndim != 2:
         raise S
     if (C.shape[H],) != E.shape:
-        R = f''
+        R = f'space array must be a 1D array with size {C.shape[H]}, not an array with shape {E.shape}'
         raise S
     L = C.shape[0]
     D = M.deepcopy(C)
@@ -341,7 +316,7 @@ def g(values0_array, space0_array, weight0_array, values_avg0_array, weight_avg0
             if A.isnan(q):
                 raise C
             if A.isnan(r):
-                C('')
+                C('equivalent value is missing, but this should have been caught earlier, check code')
             s = A.isfinite(Q[L, :]).nonzero()[0]
             if s.size == 0:
                 if J:

@@ -30,6 +30,11 @@ def create_filtered_arrays(sic4dvar_dict):
                 sic4dvar_dict['removed_indices'] = removed_indices_intersection
             else:
                 sic4dvar_dict['data_is_useable'] = False
+    tmp_filtered_reach_t = sic4dvar_dict['input_data']['reach_t'][sic4dvar_dict['list_to_keep']]
+    nan_indices = np.where(np.isnan(tmp_filtered_reach_t))[0]
+    nan_removed = sic4dvar_dict['list_to_keep'][nan_indices]
+    sic4dvar_dict['list_to_keep'] = np.delete(sic4dvar_dict['list_to_keep'], nan_indices)
+    sic4dvar_dict['removed_indices'] = np.array(np.concatenate([sic4dvar_dict['removed_indices'], nan_removed])).astype(int)
     sic4dvar_dict['filtered_data']['node_w'] = deepcopy(sic4dvar_dict['input_data']['node_w'][:, sic4dvar_dict['list_to_keep']][sic4dvar_dict['observed_nodes']])
     sic4dvar_dict['filtered_data']['node_z'] = deepcopy(sic4dvar_dict['input_data']['node_z'][:, sic4dvar_dict['list_to_keep']][sic4dvar_dict['observed_nodes']])
     sic4dvar_dict['filtered_data']['node_t'] = deepcopy(sic4dvar_dict['input_data']['node_t'][:, sic4dvar_dict['list_to_keep']][sic4dvar_dict['observed_nodes']])

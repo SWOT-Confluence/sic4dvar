@@ -1,28 +1,3 @@
-"""
-SIC4DVAR-LC
-Copyright (C) 2025 INRAE
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-Created on March 22nd 2023 at 19:30
-by @Isadora Silva
-
-Last modified on April 17th 2024 at 20:00
-by @Isadora Silva
-
-@author: Isadora Silva
-"""
 p = 'debitance'
 o = 'hydraulic_radius'
 n = 'wide'
@@ -58,7 +33,7 @@ from sic4dvar_classes.sic4dvar_0_defaults import SIC4DVarLowCostDefaults as i
 from sic4dvar_functions.helpers.helpers_arrays import arrays_rmv_nan_pair as j, arrays_check_increase as Z, iterable_to_flattened_array as a, array_fix_next_same as k, arrays_bounds as J
 from sic4dvar_functions.helpers.helpers_generic import pairwise as t
 from sic4dvar_functions.helpers.helpers_plot import helper_plot_lines as u
-from sic4dvar_functions.j211 import D as r
+from sic4dvar_functions.j983 import D as r
 
 def v(width_array, elevation_array, comp_area=D, comp_per=D, check_nan=D, sort=D, check_increasing=D):
     G = comp_per
@@ -128,9 +103,9 @@ class L(RuntimeError):
 
     def __str__(A):
         if A.message:
-            return f', {A.message}'
+            return f'HydraulicGeomParamsError, {A.message}'
         else:
-            return f''
+            return f'HydraulicGeomParamsError'
 
 class b:
 
@@ -913,23 +888,23 @@ if __name__ == '__main__':
     W = E.deepcopy(B)
     P = dict(y_lim=(0, 25), x_max_lim=450.0)
     B.plot('0 big', **P)
-    c.plot(plot_title='', **P)
+    c.plot(plot_title='0 small', **P)
     B.add_wet_bathy_from_other(c)
-    B.plot(plot_title='', **P)
+    B.plot(plot_title='added wet bathy from other 3', **P)
     B.add_dry_bathy_from_other(W)
-    B.plot(plot_title='', **P)
+    B.plot(plot_title='added dry bathy from other 4', **P)
     B = E.deepcopy(W)
     B.combine_with_other(c, preference=n)
-    B.plot(plot_title='', **P)
+    B.plot(plot_title='combined with other wide 5', **P)
     B = E.deepcopy(W)
     B.combine_with_other(c, preference='narrow')
-    B.plot(plot_title='', **P)
+    B.plot(plot_title='combined with other narrow 6', **P)
     B.shrink_bottom_by_elevation(7.5)
-    B.plot(plot_title='', **P)
+    B.plot(plot_title='shrink bottom by elevation 7', **P)
     B.extend_bottom_by_elevation(4)
-    B.plot(plot_title='', **P)
+    B.plot(plot_title='extend bottom by elevation 8', **P)
     W.shrink_bottom_by_width(100)
-    W.plot(plot_title='', **P)
+    W.plot(plot_title='shrink bottom by width 8', **P)
     B = b([992.46, 1145.06], [20.15, 20.91])
     B.plot()
     B.extend_bottom_by_elevation(13.23)
@@ -938,6 +913,6 @@ if __name__ == '__main__':
     with A.printoptions(precision=2, suppress=D):
         0
     B = b(width=[1.82, 106.07, 106.79, 214.37, 215.3, 216.0], elevation=[4.85, 4.9, 5.0, 5.07, 5.53, 6.8], sort=F, check_increasing=F, check_nan=F, float_atol=0.01)
-    B.plot(y_lim=[2.0, 8.0], plot_title='')
+    B.plot(y_lim=[2.0, 8.0], plot_title='before extension')
     B.extend_bottom_by_elevation(2.15)
-    B.plot(y_lim=[2.0, 8.0], plot_title='')
+    B.plot(y_lim=[2.0, 8.0], plot_title='after extension')
